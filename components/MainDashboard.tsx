@@ -16,6 +16,7 @@ export type Actuals = {
   proposals: number;
   wins: number;
   newArr: number;
+  newCustomers: number;
   periodWeeks: number;
   preset: PeriodPreset;
   includeCustomerSuccess: boolean;
@@ -40,6 +41,7 @@ export default function MainDashboard({
     proposals,
     wins,
     newArr,
+    newCustomers,
     periodWeeks,
     includeCustomerSuccess,
     preset,
@@ -59,7 +61,8 @@ export default function MainDashboard({
 
   const timeframeWeeks = benchmarks.revenue.timeframeWeeks || 1;
   const projectedNewArrInTimeframe = weeklyArr * timeframeWeeks;
-  const projectedArr = benchmarks.revenue.currentArr + projectedNewArrInTimeframe;
+  const projectedArr =
+    benchmarks.revenue.currentArr + projectedNewArrInTimeframe;
 
   const arrGap = benchmarks.revenue.arrTarget - projectedArr;
   const neededNewArrTotal =
@@ -67,6 +70,9 @@ export default function MainDashboard({
   const neededNewArrPerWeek =
     neededNewArrTotal > 0 ? neededNewArrTotal / timeframeWeeks : 0;
   const neededNewArrPerMonth = neededNewArrPerWeek * 4; // 4-week month
+
+  const acv =
+    newCustomers > 0 ? newArr / newCustomers : 0;
 
   // Bottleneck: compare actual vs target conversion
   const stages = [
@@ -116,9 +122,13 @@ export default function MainDashboard({
     bottleneck,
     includeCustomerSuccess,
     benchmarks,
+    acv,
   });
 
-  const handleActualChange = (field: keyof Actuals, value: string | boolean) => {
+  const handleActualChange = (
+    field: keyof Actuals,
+    value: string | boolean
+  ) => {
     const updated: Actuals = { ...actuals };
 
     if (field === "includeCustomerSuccess") {
@@ -134,9 +144,8 @@ export default function MainDashboard({
       } else if (presetValue === "last_year") {
         updated.periodWeeks = 52;
       }
-      // custom → leave periodWeeks as user-entered
+      // custom → leave as is
     } else {
-      // numeric fields
       const num = Number(value) || 0;
 
       switch (field) {
@@ -161,6 +170,9 @@ export default function MainDashboard({
         case "newArr":
           updated.newArr = num;
           break;
+        case "newCustomers":
+          updated.newCustomers = num;
+          break;
         case "periodWeeks":
           updated.periodWeeks = num;
           break;
@@ -180,9 +192,9 @@ export default function MainDashboard({
               Funnel Performance (This Period)
             </h2>
             <p className="text-xs text-slate-400 mt-1 max-w-2xl">
-              Plug in real funnel performance for a recent period (minimum one
-              month). The dashboard will compute run rate, ARR projections, and
-              the weakest stage versus your benchmarks.
+              Use a recent period such as last month or last quarter.
+              We&apos;ll compute ARR run rate, projected ARR vs target,
+              ACV, and highlight the weakest conversion step.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -191,18 +203,28 @@ export default function MainDashboard({
               <select
                 className="block w-full rounded-lg bg-slate-900 border border-slate-700 px-2 py-1.5 text-xs text-slate-50 focus:outline-none focus:ring-1 focus:ring-sky-500"
                 value={preset}
-                onChange={(e) => handleActualChange("preset", e.target.value)}
+                onChange={(e) =>
+                  handleActualChange("preset", e.target.value)
+                }
               >
-                <option value="last_month">Last month (~4 weeks)</option>
-                <option value="last_quarter">Last quarter (~13 weeks)</option>
-                <option value="last_year">Last year (52 weeks)</option>
+                <option value="last_month">
+                  Last month (~4 weeks)
+                </option>
+                <option value="last_quarter">
+                  Last quarter (~13 weeks)
+                </option>
+                <option value="last_year">
+                  Last year (52 weeks)
+                </option>
                 <option value="custom">Custom</option>
               </select>
             </label>
             <NumberFieldSmall
               label="Period length (weeks)"
               value={periodWeeks}
-              onChange={(v) => handleActualChange("periodWeeks", v)}
+              onChange={(v) =>
+                handleActualChange("periodWeeks", v)
+              }
             />
           </div>
         </div>
@@ -211,66 +233,86 @@ export default function MainDashboard({
           <NumberFieldSmall
             label="Leads"
             value={leads}
-            onChange={(v) => handleActualChange("leads", v)}
+            onChange={(v) =>
+              handleActualChange("leads", v)
+            }
           />
           <NumberFieldSmall
             label="MQLs"
             value={mqls}
-            onChange={(v) => handleActualChange("mqls", v)}
+            onChange={(v) =>
+              handleActualChange("mqls", v)
+            }
           />
           <NumberFieldSmall
             label="SQLs"
             value={sqls}
-            onChange={(v) => handleActualChange("sqls", v)}
+            onChange={(v) =>
+              handleActualChange("sqls", v)
+            }
           />
           <NumberFieldSmall
             label="Opps"
             value={opps}
-            onChange={(v) => handleActualChange("opps", v)}
+            onChange={(v) =>
+              handleActualChange("opps", v)
+            }
           />
           <NumberFieldSmall
             label="Proposals"
             value={proposals}
-            onChange={(v) => handleActualChange("proposals", v)}
+            onChange={(v) =>
+              handleActualChange("proposals", v)
+            }
           />
           <NumberFieldSmall
             label="Wins"
             value={wins}
-            onChange={(v) => handleActualChange("wins", v)}
+            onChange={(v) =>
+              handleActualChange("wins", v)
+            }
           />
         </div>
 
-        <div className="flex flex-col md:flex-row gap-3 md:items-end md:justify-between">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-md">
-            <NumberFieldSmall
-              label="New ARR in this period (€)"
-              value={newArr}
-              onChange={(v) => handleActualChange("newArr", v)}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:items-end">
+          <NumberFieldSmall
+            label="Total new ARR / revenue in this period (€)"
+            value={newArr}
+            onChange={(v) =>
+              handleActualChange("newArr", v)
+            }
+          />
+          <NumberFieldSmall
+            label="New customers in this period"
+            value={newCustomers}
+            onChange={(v) =>
+              handleActualChange("newCustomers", v)
+            }
+          />
+          <label className="flex items-center gap-2 text-xs text-slate-300 mt-1 md:mt-0">
+            <input
+              type="checkbox"
+              className="rounded border-slate-600 bg-slate-900"
+              checked={includeCustomerSuccess}
+              onChange={(e) =>
+                handleActualChange(
+                  "includeCustomerSuccess",
+                  e.target.checked
+                )
+              }
             />
-            <label className="flex items-center gap-2 text-xs text-slate-300 mt-1 md:mt-0">
-              <input
-                type="checkbox"
-                className="rounded border-slate-600 bg-slate-900"
-                checked={includeCustomerSuccess}
-                onChange={(e) =>
-                  handleActualChange(
-                    "includeCustomerSuccess",
-                    e.target.checked
-                  )
-                }
-              />
-              <span>
-                Include Customer Success metrics (NRR, churn, expansion)
-              </span>
-            </label>
-          </div>
+            <span>
+              Include Customer Success metrics (NRR, churn,
+              expansion) in narrative
+            </span>
+          </label>
         </div>
       </section>
 
       {/* Top KPI Cards */}
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          label="ARR Run Rate (annualised)"
+          label="ARR run rate (annualised)"
           value={annualisedArrRunRate}
           format="currency"
         />
@@ -286,10 +328,14 @@ export default function MainDashboard({
           highlight={arrGap > 0 ? "negative" : "positive"}
         />
         <MetricCard
-          label="Needed new ARR / month"
-          value={neededNewArrPerMonth}
+          label="Avg. contract value (ACV)"
+          value={acv}
           format="currency"
-          helper="4-week month assumption"
+          helper={
+            newCustomers > 0
+              ? "Based on revenue ÷ new customers in this period"
+              : "Add new customers to compute ACV"
+          }
         />
       </section>
 
@@ -336,8 +382,10 @@ export default function MainDashboard({
           {bottleneck ? (
             <>
               <p className="text-sm text-slate-50">
-                <span className="font-semibold">{bottleneck.key}</span> is
-                currently the weakest stage versus target.
+                <span className="font-semibold">
+                  {bottleneck.key}
+                </span>{" "}
+                is currently the weakest stage versus target.
               </p>
               <p className="text-xs text-slate-300">
                 Actual:{" "}
@@ -348,13 +396,15 @@ export default function MainDashboard({
                 <span className="font-semibold">
                   {bottleneck.target.toFixed(1)}%
                 </span>
-                . Improving this step will push more volume into downstream
-                stages without extra spend at the very top of the funnel.
+                . Improving this step will push more volume into
+                downstream stages without extra spend at the very
+                top of the funnel.
               </p>
             </>
           ) : (
             <p className="text-xs text-slate-300">
-              Add some funnel data and benchmarks to identify the weakest stage.
+              Add some funnel data and benchmarks to identify the
+              weakest stage.
             </p>
           )}
         </div>
@@ -408,9 +458,13 @@ function MetricCard({
       <span className="text-[0.68rem] uppercase tracking-[0.2em] text-slate-400">
         {label}
       </span>
-      <span className={`mt-1 text-lg font-semibold ${colour}`}>{formatted}</span>
+      <span className={`mt-1 text-lg font-semibold ${colour}`}>
+        {formatted}
+      </span>
       {helper && (
-        <span className="mt-1 text-[0.7rem] text-slate-400">{helper}</span>
+        <span className="mt-1 text-[0.7rem] text-slate-400">
+          {helper}
+        </span>
       )}
     </div>
   );
@@ -422,7 +476,11 @@ type ConversionCardProps = {
   target: number;
 };
 
-function ConversionCard({ label, actual, target }: ConversionCardProps) {
+function ConversionCard({
+  label,
+  actual,
+  target,
+}: ConversionCardProps) {
   const diff = actual - target;
   const colour =
     diff >= 0 ? "text-emerald-400" : "text-amber-300";
@@ -433,11 +491,18 @@ function ConversionCard({ label, actual, target }: ConversionCardProps) {
         {label}
       </div>
       <div className="text-sm text-slate-200">
-        <span className="font-semibold">{actual.toFixed(1)}%</span>{" "}
-        <span className="text-[0.7rem] text-slate-400">actual</span>
+        <span className="font-semibold">
+          {actual.toFixed(1)}%
+        </span>{" "}
+        <span className="text-[0.7rem] text-slate-400">
+          actual
+        </span>
       </div>
       <div className="text-xs text-slate-300">
-        Target: <span className="font-semibold">{target.toFixed(1)}%</span>
+        Target:{" "}
+        <span className="font-semibold">
+          {target.toFixed(1)}%
+        </span>
       </div>
       <div className={`mt-1 text-[0.7rem] ${colour}`}>
         {diff >= 0
@@ -454,7 +519,11 @@ type NumberFieldSmallProps = {
   onChange: (val: string) => void;
 };
 
-function NumberFieldSmall({ label, value, onChange }: NumberFieldSmallProps) {
+function NumberFieldSmall({
+  label,
+  value,
+  onChange,
+}: NumberFieldSmallProps) {
   return (
     <label className="block text-xs text-slate-300 space-y-1">
       <span>{label}</span>
@@ -486,9 +555,14 @@ function buildGrowthNarrative(args: {
   arrGap: number;
   annualisedArrRunRate: number;
   neededNewArrPerMonth: number;
-  bottleneck: null | { key: string; actual: number; target: number };
+  bottleneck: null | {
+    key: string;
+    actual: number;
+    target: number;
+  };
   includeCustomerSuccess: boolean;
   benchmarks: Benchmarks;
+  acv: number;
 }): string {
   const {
     projectedArr,
@@ -498,6 +572,7 @@ function buildGrowthNarrative(args: {
     bottleneck,
     includeCustomerSuccess,
     benchmarks,
+    acv,
   } = args;
 
   const lines: string[] = [];
@@ -509,6 +584,14 @@ function buildGrowthNarrative(args: {
       projectedArr
     ).toLocaleString()} by the end of the selected timeframe.`
   );
+
+  if (acv > 0) {
+    lines.push(
+      `Average contract value in this period is about €${Math.round(
+        acv
+      ).toLocaleString()}, which is useful when thinking about the volume of deals required to close the ARR gap.`
+    );
+  }
 
   if (arrGap > 0) {
     lines.push(
@@ -542,7 +625,7 @@ function buildGrowthNarrative(args: {
     lines.push(
       `Downstream, Customer Success remains a powerful multiplier. With an NRR target of ${
         benchmarks.cs.nrr
-      }% and gross margin of ${benchmarks.cs.grossMargin}%, improving retention and expansion for existing customers can close part of the ARR gap without relying only on new logo acquisition.`
+      }% and gross margin of ${benchmarks.cs.grossMargin}%, improving retention and expansion can close part of the ARR gap without relying only on new logo acquisition.`
     );
   } else {
     lines.push(
