@@ -2,231 +2,519 @@
 
 import { Benchmarks } from "./BenchmarksPanel";
 
-type Props = {
-  benchmarks: Benchmarks;
+export type PeriodPreset =
+  | "last_month"
+  | "last_quarter"
+  | "last_year"
+  | "custom";
+
+export type Actuals = {
+  leads: number;
+  mqls: number;
+  sqls: number;
+  opps: number;
+  proposals: number;
+  wins: number;
+  newArr: number;
+  periodWeeks: number;
+  preset: PeriodPreset;
+  includeCustomerSuccess: boolean;
 };
 
-export default function MainDashboard({ benchmarks }: Props) {
+type Props = {
+  benchmarks: Benchmarks;
+  actuals: Actuals;
+  onActualsChange: (a: Actuals) => void;
+};
+
+export default function MainDashboard({
+  benchmarks,
+  actuals,
+  onActualsChange,
+}: Props) {
   const {
-    marketing,
-    sales,
-    cs,
-    arr: { currentArr, arrTarget, timeframeWeeks, blendedCac },
-  } = benchmarks;
+    leads,
+    mqls,
+    sqls,
+    opps,
+    proposals,
+    wins,
+    newArr,
+    periodWeeks,
+    includeCustomerSuccess,
+    preset,
+  } = actuals;
 
-  // Simple throughput modelling based on benchmarks + lead volume
-  const leads = marketing.leadsPerMonth;
-  const mqls = Math.round(leads * (marketing.leadToMql / 100));
-  const sqls = Math.round(mqls * (marketing.mqlToSql / 100));
-  const opps = Math.round(sqls * (marketing.sqlToOpp / 100));
-  const proposals = Math.round(opps * (sales.oppToProposal / 100));
-  const wins = Math.round(proposals * (sales.proposalToWin / 100));
+  // --- Derived metrics ---
+  const safePeriodWeeks = periodWeeks > 0 ? periodWeeks : 1;
 
-  const newArrPerMonth = wins * sales.acv;
-  const arrRunRate = newArrPerMonth * 12;
+  const leadToMqlActual = pct(mqls, leads);
+  const mqlToSqlActual = pct(sqls, mqls);
+  const sqlToOppActual = pct(opps, sqls);
+  const oppToProposalActual = pct(proposals, opps);
+  const proposalToWinActual = pct(wins, proposals);
 
-  const months = timeframeWeeks / 4.333; // rough conversion
-  const projectedArrInTimeframe = currentArr + newArrPerMonth * months;
-  const gapToTarget = Math.max(arrTarget - projectedArrInTimeframe, 0);
-  const requiredNewArrPerMonth =
-    months > 0 ? Math.max(arrTarget - currentArr, 0) / months : 0;
+  const weeklyArr = newArr / safePeriodWeeks;
+  const annualisedArrRunRate = weeklyArr * 52;
 
-  const bottlenecks = [
+  const timeframeWeeks = benchmarks.revenue.timeframeWeeks || 1;
+  const projectedNewArrInTimeframe = weeklyArr * timeframeWeeks;
+  const projectedArr = benchmarks.revenue.currentArr + projectedNewArrInTimeframe;
+
+  const arrGap = benchmarks.revenue.arrTarget - projectedArr;
+  const neededNewArrTotal =
+    benchmarks.revenue.arrTarget - benchmarks.revenue.currentArr;
+  const neededNewArrPerWeek =
+    neededNewArrTotal > 0 ? neededNewArrTotal / timeframeWeeks : 0;
+  const neededNewArrPerMonth = neededNewArrPerWeek * 4; // 4-week month for simplicity
+
+  // Bottleneck: compare actual vs target conversion
+  const stages = [
     {
-      label: "Lead → MQL",
-      value: marketing.leadToMql,
-      target: 25,
+      key: "Lead → MQL",
+      actual: leadToMqlActual,
+      target: benchmarks.marketing.leadToMql,
     },
     {
-      label: "MQL → SQL",
-      value: marketing.mqlToSql,
-      target: 40,
+      key: "MQL → SQL",
+      actual: mqlToSqlActual,
+      target: benchmarks.marketing.mqlToSql,
     },
     {
-      label: "SQL → Opp",
-      value: marketing.sqlToOpp,
-      target: 35,
+      key: "SQL → Opp",
+      actual: sqlToOppActual,
+      target: benchmarks.marketing.sqlToOpp,
     },
     {
-      label: "Opp → Proposal",
-      value: sales.oppToProposal,
-      target: 50,
+      key: "Opp → Proposal",
+      actual: oppToProposalActual,
+      target: benchmarks.sales.oppToProposal,
     },
     {
-      label: "Proposal → Win",
-      value: sales.proposalToWin,
-      target: 25,
+      key: "Proposal → Win",
+      actual: proposalToWinActual,
+      target: benchmarks.sales.proposalToWin,
     },
   ];
 
-  const weakest = bottlenecks.reduce((worst, step) => {
-    const gap = step.value - step.target;
-    const worstGap = worst.value - worst.target;
-    return gap < worstGap ? step : worst;
+  let bottleneck = null as null | (typeof stages)[number];
+  let maxGap = 0;
+
+  stages.forEach((s) => {
+    const gap = s.target - s.actual;
+    if (gap > maxGap) {
+      maxGap = gap;
+      bottleneck = s;
+    }
   });
 
-  const currency = "€";
+  const growthNarrative = buildGrowthNarrative({
+    projectedArr,
+    arrGap,
+    annualisedArrRunRate,
+    neededNewArrPerMonth,
+    bottleneck,
+    includeCustomerSuccess,
+    benchmarks,
+  });
+
+  const handleActualChange = (field: keyof Actuals, value: string | boolean) => {
+    const updated: Actuals = { ...actuals };
+    if (field === "includeCustomerSuccess") {
+      updated.includeCustomerSuccess = Boolean(value);
+    } else if (field === "preset") {
+      const presetValue = value as PeriodPreset;
+      updated.preset = presetValue;
+
+      if (presetValue === "last_month") {
+        updated.periodWeeks = 4;
+      } else if (presetValue === "last_quarter") {
+        updated.periodWeeks = 13;
+      } else if (presetValue === "last_year") {
+        updated.periodWeeks = 52;
+      }
+      // custom leaves weeks as user input
+    } else {
+      // numeric fields
+      // @ts-expect-error index access
+      updated[field] = Number(value) || 0;
+    }
+    onActualsChange(updated);
+  };
 
   return (
     <section className="space-y-6">
-      {/* Top row: ARR + gap + requirement */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card
-          title="Current ARR"
-          value={`${currency}${formatNumber(currentArr)}`}
-          subtitle="Baseline ARR today"
-        />
-        <Card
-          title="ARR Target"
-          value={`${currency}${formatNumber(arrTarget)}`}
-          subtitle={`Timeframe: ~${Math.round(months)} months`}
-        />
-        <Card
-          title="Projected ARR in timeframe"
-          value={`${currency}${formatNumber(projectedArrInTimeframe)}`}
-          subtitle="If current net new ARR trends hold."
-          tone="info"
-        />
-        <Card
-          title="Gap to ARR target"
-          value={`${currency}${formatNumber(gapToTarget)}`}
-          subtitle="Additional ARR needed in this timeframe."
-          tone={gapToTarget > 0 ? "warn" : "good"}
-        />
-      </div>
+      {/* Actuals Input Panel */}
+      <section className="border border-slate-800 rounded-2xl bg-slate-900/70 shadow-lg p-4 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+              Funnel Performance (This Period)
+            </h2>
+            <p className="text-xs text-slate-400 mt-1 max-w-2xl">
+              Plug in real funnel performance for a recent period (minimum one
+              month). The dashboard will compute run rate, ARR projections, and
+              the weakest stage versus your benchmarks.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="text-xs text-slate-300 space-y-1">
+              <span>Period</span>
+              <select
+                className="block w-full rounded-lg bg-slate-900 border border-slate-700 px-2 py-1.5 text-xs text-slate-50 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                value={preset}
+                onChange={(e) => handleActualChange("preset", e.target.value)}
+              >
+                <option value="last_month">Last month (~4 weeks)</option>
+                <option value="last_quarter">Last quarter (~13 weeks)</option>
+                <option value="last_year">Last year (52 weeks)</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <NumberFieldSmall
+              label="Period length (weeks)"
+              value={periodWeeks}
+              onChange={(v) => handleActualChange("periodWeeks", v)}
+            />
+          </div>
+        </div>
 
-      {/* Run-rate and CAC view */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card
-          title="Net new ARR / month"
-          value={`${currency}${formatNumber(newArrPerMonth)}`}
-          subtitle={`ARR run rate (12m): ${currency}${formatNumber(arrRunRate)}`}
-        />
-        <Card
-          title="Required ARR / month"
-          value={`${currency}${formatNumber(requiredNewArrPerMonth)}`}
-          subtitle="Average new ARR / month needed to hit target."
-        />
-        <Card
-          title="Implied CAC payback"
-          value={`${calcPayback(blendedCac, sales.acv)} months`}
-          subtitle="Based on ACV and blended CAC."
-        />
-        <Card
-          title="NRR target"
-          value={`${cs.nrr.toFixed(0)}%`}
-          subtitle={`Churn ${cs.churnMonthly}% / Expansion ${cs.expansionRate}%`}
-        />
-      </div>
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+          <NumberFieldSmall
+            label="Leads"
+            value={leads}
+            onChange={(v) => handleActualChange("leads", v)}
+          />
+          <NumberFieldSmall
+            label="MQLs"
+            value={mqls}
+            onChange={(v) => handleActualChange("mqls", v)}
+          />
+          <NumberFieldSmall
+            label="SQLs"
+            value={sqls}
+            onChange={(v) => handleActualChange("sqls", v)}
+          />
+          <NumberFieldSmall
+            label="Opps"
+            value={opps}
+            onChange={(v) => handleActualChange("opps", v)}
+          />
+          <NumberFieldSmall
+            label="Proposals"
+            value={proposals}
+            onChange={(v) => handleActualChange("proposals", v)}
+          />
+          <NumberFieldSmall
+            label="Wins"
+            value={wins}
+            onChange={(v) => handleActualChange("wins", v)}
+          />
+        </div>
 
-      {/* Funnel throughput row */}
-      <div className="rounded-3xl bg-slate-900/80 border border-slate-800 p-4">
-        <h3 className="mb-3 text-sm font-semibold text-slate-100">
-          Funnel throughput (per month)
+        <div className="flex flex-col md:flex-row gap-3 md:items-end md:justify-between">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-md">
+            <NumberFieldSmall
+              label="New ARR in this period (€)"
+              value={newArr}
+              onChange={(v) => handleActualChange("newArr", v)}
+            />
+            <label className="flex items-center gap-2 text-xs text-slate-300 mt-1 md:mt-0">
+              <input
+                type="checkbox"
+                className="rounded border-slate-600 bg-slate-900"
+                checked={includeCustomerSuccess}
+                onChange={(e) =>
+                  handleActualChange("includeCustomerSuccess", e.target.checked)
+                }
+              />
+              <span>Include Customer Success metrics (NRR, churn, expansion)</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      {/* Top KPI Cards */}
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard
+          label="ARR Run Rate (annualised)"
+          value={annualisedArrRunRate}
+          format="currency"
+        />
+        <MetricCard
+          label="Projected ARR in timeframe"
+          value={projectedArr}
+          format="currency"
+        />
+        <MetricCard
+          label="Gap vs ARR target"
+          value={arrGap}
+          format="currency"
+          highlight={arrGap > 0 ? "negative" : "positive"}
+        />
+        <MetricCard
+          label="Needed new ARR / month"
+          value={neededNewArrPerMonth}
+          format="currency"
+          helper="4-week month assumption"
+        />
+      </section>
+
+      {/* Conversion vs Benchmark */}
+      <section className="border border-slate-800 rounded-2xl bg-slate-900/70 shadow-lg p-4 space-y-4">
+        <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+          Funnel Conversion vs Targets
         </h3>
-        <div className="grid gap-3 md:grid-cols-6 text-sm">
-          <Metric label="Leads" value={leads} />
-          <Metric label="MQLs" value={mqls} />
-          <Metric label="SQLs" value={sqls} />
-          <Metric label="Opportunities" value={opps} />
-          <Metric label="Proposals" value={proposals} />
-          <Metric label="Wins" value={wins} />
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <ConversionCard
+            label="Lead → MQL"
+            actual={leadToMqlActual}
+            target={benchmarks.marketing.leadToMql}
+          />
+          <ConversionCard
+            label="MQL → SQL"
+            actual={mqlToSqlActual}
+            target={benchmarks.marketing.mqlToSql}
+          />
+          <ConversionCard
+            label="SQL → Opp"
+            actual={sqlToOppActual}
+            target={benchmarks.marketing.sqlToOpp}
+          />
+          <ConversionCard
+            label="Opp → Proposal"
+            actual={oppToProposalActual}
+            target={benchmarks.sales.oppToProposal}
+          />
+          <ConversionCard
+            label="Proposal → Win"
+            actual={proposalToWinActual}
+            target={benchmarks.sales.proposalToWin}
+          />
         </div>
-      </div>
+      </section>
 
-      {/* Bottleneck + growth path */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-3xl bg-slate-900/80 border border-slate-800 p-4 space-y-2">
-          <h3 className="text-sm font-semibold">Bottleneck diagnosis</h3>
-          <p className="text-xs text-slate-300">
-            <span className="font-semibold">{weakest.label}</span> is currently
-            the weakest stage versus target.
-          </p>
-          <p className="text-xs text-slate-400">
-            Actual: {weakest.value.toFixed(1)}%, Target:{" "}
-            {weakest.target.toFixed(1)}%. Improving this step will have an
-            outsized impact on throughput because more opportunities will flow
-            into downstream stages without extra spend at the very top of the
-            funnel.
+      {/* Bottleneck + Narrative */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="border border-slate-800 rounded-2xl bg-slate-900/70 shadow-lg p-4 space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+            Bottleneck Diagnosis
+          </h3>
+          {bottleneck ? (
+            <>
+              <p className="text-sm text-slate-50">
+                <span className="font-semibold">{bottleneck.key}</span> is
+                currently the weakest stage versus target.
+              </p>
+              <p className="text-xs text-slate-300">
+                Actual:{" "}
+                <span className="font-semibold">
+                  {bottleneck.actual.toFixed(1)}%
+                </span>{" "}
+                &nbsp; Target:{" "}
+                <span className="font-semibold">
+                  {bottleneck.target.toFixed(1)}%
+                </span>
+                . Improving this step will push more volume into downstream
+                stages without extra spend at the very top of the funnel.
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-slate-300">
+              Add some funnel data and benchmarks to identify the weakest stage.
+            </p>
+          )}
+        </div>
+
+        <div className="border border-slate-800 rounded-2xl bg-slate-900/70 shadow-lg p-4 space-y-2 lg:col-span-2">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+            Growth Path & Talking Points
+          </h3>
+          <p className="text-xs text-slate-200 whitespace-pre-line">
+            {growthNarrative}
           </p>
         </div>
-        <div className="rounded-3xl bg-slate-900/80 border border-slate-800 p-4 space-y-2">
-          <h3 className="text-sm font-semibold">Growth path suggestion</h3>
-          <p className="text-xs text-slate-300">
-            Use this view in an EdgeTier-style review to compare last quarter or
-            last year against current performance.
-          </p>
-          <p className="text-xs text-slate-400">
-            Ask which stage is most below target and why, what experiments you
-            can run to improve that conversion, and how much additional ARR you
-            could unlock by closing half the gap. That turns this dashboard into
-            a scenario planning tool: tweak inputs, watch ARR run rate and gap
-            move, then prioritise initiatives accordingly.
-          </p>
-        </div>
-      </div>
+      </section>
     </section>
   );
 }
 
-type CardProps = {
-  title: string;
-  value: string;
-  subtitle?: string;
-  tone?: "normal" | "info" | "warn" | "good";
+// ---------- helpers / subcomponents ----------
+
+type MetricCardProps = {
+  label: string;
+  value: number;
+  format?: "currency" | "percent" | "number";
+  highlight?: "positive" | "negative";
+  helper?: string;
 };
 
-function Card({ title, value, subtitle, tone = "normal" }: CardProps) {
-  const border =
-    tone === "info"
-      ? "border-sky-500/60"
-      : tone === "warn"
-      ? "border-amber-500/60"
-      : tone === "good"
-      ? "border-emerald-500/60"
-      : "border-slate-800";
+function MetricCard({
+  label,
+  value,
+  format = "currency",
+  highlight,
+  helper,
+}: MetricCardProps) {
+  const formatted =
+    format === "currency"
+      ? formatCurrency(value)
+      : format === "percent"
+      ? `${value.toFixed(1)}%`
+      : Math.round(value).toLocaleString();
+
+  const colour =
+    highlight === "positive"
+      ? "text-emerald-400"
+      : highlight === "negative"
+      ? "text-rose-400"
+      : "text-slate-50";
 
   return (
-    <div
-      className={`rounded-3xl bg-slate-900/80 border ${border} px-4 py-3 flex flex-col justify-between`}
-    >
-      <div>
-        <p className="text-xs text-slate-400">{title}</p>
-        <p className="mt-1 text-lg font-semibold">{value}</p>
-      </div>
-      {subtitle && (
-        <p className="mt-1 text-[11px] text-slate-500 leading-snug">
-          {subtitle}
-        </p>
+    <div className="border border-slate-800 rounded-2xl bg-slate-900/80 px-3 py-3 flex flex-col justify-between">
+      <span className="text-[0.68rem] uppercase tracking-[0.2em] text-slate-400">
+        {label}
+      </span>
+      <span className={`mt-1 text-lg font-semibold ${colour}`}>{formatted}</span>
+      {helper && (
+        <span className="mt-1 text-[0.7rem] text-slate-400">{helper}</span>
       )}
     </div>
   );
 }
 
-type MetricProps = {
+type ConversionCardProps = {
   label: string;
-  value: number | string;
+  actual: number;
+  target: number;
 };
 
-function Metric({ label, value }: MetricProps) {
+function ConversionCard({ label, actual, target }: ConversionCardProps) {
+  const diff = actual - target;
+  const colour =
+    diff >= 0 ? "text-emerald-400" : "text-amber-300";
+
   return (
-    <div className="rounded-2xl bg-slate-950/40 border border-slate-800 px-3 py-2">
-      <p className="text-[11px] text-slate-400">{label}</p>
-      <p className="text-sm font-semibold mt-1">
-        {typeof value === "number" ? formatNumber(value) : value}
-      </p>
+    <div className="border border-slate-800 rounded-2xl bg-slate-900/80 px-3 py-3">
+      <div className="text-[0.68rem] uppercase tracking-[0.18em] text-slate-400 mb-1">
+        {label}
+      </div>
+      <div className="text-sm text-slate-200">
+        <span className="font-semibold">{actual.toFixed(1)}%</span>{" "}
+        <span className="text-[0.7rem] text-slate-400">actual</span>
+      </div>
+      <div className="text-xs text-slate-300">
+        Target:{" "}
+        <span className="font-semibold">{target.toFixed(1)}%</span>
+      </div>
+      <div className={`mt-1 text-[0.7rem] ${colour}`}>
+        {diff >= 0 ? `+${diff.toFixed(1)} pts vs target` : `${diff.toFixed(1)} pts vs target`}
+      </div>
     </div>
   );
 }
 
-function formatNumber(n: number): string {
-  return n.toLocaleString("en-US", {
-    maximumFractionDigits: 0,
-  });
+type NumberFieldSmallProps = {
+  label: string;
+  value: number;
+  onChange: (val: string) => void;
+};
+
+function NumberFieldSmall({ label, value, onChange }: NumberFieldSmallProps) {
+  return (
+    <label className="block text-xs text-slate-300 space-y-1">
+      <span>{label}</span>
+      <input
+        type="number"
+        className="w-full rounded-lg bg-slate-900 border border-slate-700 px-2 py-1.5 text-xs text-slate-50 focus:outline-none focus:ring-1 focus:ring-sky-500"
+        value={Number.isNaN(value) ? "" : value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
+  );
 }
 
-function calcPayback(cac: number, acv: number): string {
-  if (!cac || !acv) return "–";
-  const months = cac / (acv / 12);
-  return months.toFixed(1);
+function pct(part: number, whole: number): number {
+  if (!whole || whole <= 0) return 0;
+  return (part / whole) * 100;
+}
+
+function formatCurrency(val: number): string {
+  const sign = val < 0 ? "-" : "";
+  const abs = Math.abs(val);
+  return `${sign}€${abs.toLocaleString(undefined, {
+    maximumFractionDigits: 0,
+  })}`;
+}
+
+function buildGrowthNarrative(args: {
+  projectedArr: number;
+  arrGap: number;
+  annualisedArrRunRate: number;
+  neededNewArrPerMonth: number;
+  bottleneck: null | { key: string; actual: number; target: number };
+  includeCustomerSuccess: boolean;
+  benchmarks: Benchmarks;
+}): string {
+  const {
+    projectedArr,
+    arrGap,
+    annualisedArrRunRate,
+    neededNewArrPerMonth,
+    bottleneck,
+    includeCustomerSuccess,
+    benchmarks,
+  } = args;
+
+  const lines: string[] = [];
+
+  lines.push(
+    `Based on recent performance, your ARR run rate is approximately €${Math.round(
+      annualisedArrRunRate
+    ).toLocaleString()}, projecting to around €${Math.round(
+      projectedArr
+    ).toLocaleString()} by the end of the selected timeframe.`
+  );
+
+  if (arrGap > 0) {
+    lines.push(
+      `There is a remaining gap of about €${Math.round(
+        arrGap
+      ).toLocaleString()} versus your ARR target, which translates into roughly €${Math.round(
+        neededNewArrPerMonth
+      ).toLocaleString()} in new ARR per month (assuming a 4-week month).`
+    );
+  } else {
+    lines.push(
+      `On current trajectory you are on track to meet or slightly exceed your ARR target in this timeframe.`
+    );
+  }
+
+  if (bottleneck) {
+    lines.push(
+      `The most important lever right now is ${bottleneck.key}, where actual conversion is ${bottleneck.actual.toFixed(
+        1
+      )}% versus a target of ${bottleneck.target.toFixed(
+        1
+      )}%. Prioritise experiments, enablement, and playbooks here before adding significant spend at the top of the funnel.`
+    );
+  } else {
+    lines.push(
+      `Once you have a few weeks of consistent funnel data, this view will highlight the single weakest conversion step to focus experimentation and enablement on.`
+    );
+  }
+
+  if (includeCustomerSuccess) {
+    lines.push(
+      `Downstream, Customer Success remains a powerful multiplier. With an NRR target of ${
+        benchmarks.cs.nrr
+      }% and gross margin of ${benchmarks.cs.grossMargin}%, improving retention and expansion for existing customers can close part of the ARR gap without relying only on new logo acquisition.`
+    );
+  } else {
+    lines.push(
+      `This view currently ignores churn and expansion. In a full system view, NRR and margin from existing customers are often as important as new logo acquisition for hitting ambitious ARR targets.`
+    );
+  }
+
+  return lines.join("\n\n");
 }
