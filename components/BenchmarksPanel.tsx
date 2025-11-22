@@ -7,53 +7,24 @@ export type Benchmarks = {
     leadToMql: number;
     mqlToSql: number;
     sqlToOpp: number;
-    leadsPerMonth: number;
+    cac: number;
   };
   sales: {
     oppToProposal: number;
     proposalToWin: number;
     acv: number;
-    salesCycleDays: number;
   };
   cs: {
-    churnMonthly: number;
-    expansionRate: number;
+    churn: number;
+    expansion: number;
     nrr: number;
     grossMargin: number;
   };
-  arr: {
+  revenue: {
     currentArr: number;
     arrTarget: number;
     timeframeWeeks: number;
-    blendedCac: number;
   };
-};
-
-export const defaultBenchmarks: Benchmarks = {
-  marketing: {
-    leadToMql: 25,
-    mqlToSql: 40,
-    sqlToOpp: 35,
-    leadsPerMonth: 1500,
-  },
-  sales: {
-    oppToProposal: 35,
-    proposalToWin: 25,
-    acv: 50000,
-    salesCycleDays: 90,
-  },
-  cs: {
-    churnMonthly: 1,
-    expansionRate: 20,
-    nrr: 120,
-    grossMargin: 75,
-  },
-  arr: {
-    currentArr: 1500000,
-    arrTarget: 2500000,
-    timeframeWeeks: 52,
-    blendedCac: 25000,
-  },
 };
 
 type Props = {
@@ -61,7 +32,7 @@ type Props = {
   onChange: (b: Benchmarks) => void;
 };
 
-export function BenchmarksPanel({ benchmarks, onChange }: Props) {
+export default function BenchmarksPanel({ benchmarks, onChange }: Props) {
   const [open, setOpen] = useState(true);
 
   const handleNumberChange = (
@@ -69,171 +40,152 @@ export function BenchmarksPanel({ benchmarks, onChange }: Props) {
     field: string,
     value: string
   ) => {
-    const num = Number(value.replace(/\D/g, "")) || 0;
-    onChange({
-      ...benchmarks,
-      [section]: {
-        ...(benchmarks as any)[section],
-        [field]: num,
-      },
-    });
+    const num = Number(value) || 0;
+    const clone: Benchmarks = JSON.parse(JSON.stringify(benchmarks));
+    // @ts-expect-error index access
+    clone[section][field] = num;
+    onChange(clone);
   };
 
   return (
-    <section className="rounded-3xl bg-slate-900/80 border border-slate-800 shadow-lg">
-      <div className="flex items-center justify-between p-4 border-b border-slate-800">
+    <section className="border border-slate-800 rounded-2xl bg-slate-900/60 shadow-lg">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 border-b border-slate-800 text-left"
+      >
         <div>
-          <h2 className="text-lg font-semibold">Benchmarks</h2>
-          <p className="text-xs text-slate-400">
-            These benchmarks drive colour-coding and run-rate comparisons across
-            the dashboard.
+          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-300">
+            Benchmarks & ARR Targets
+          </h2>
+          <p className="text-xs text-slate-400 mt-1">
+            Set your target conversion rates, unit economics, and ARR goal over
+            a chosen timeframe (in weeks).
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800"
-        >
-          {open ? "Hide benchmarks" : "Show benchmarks"}
-        </button>
-      </div>
+        <span className="text-xs text-slate-400">
+          {open ? "Hide" : "Show"}
+        </span>
+      </button>
 
       {open && (
-        <div className="grid gap-6 p-4 md:grid-cols-4">
-          {/* Marketing */}
-          <div className="space-y-4 rounded-2xl bg-slate-950/40 p-4 border border-slate-800">
-            <h3 className="text-sm font-semibold">Marketing</h3>
-            <Field
-              label="Leads per month"
-              suffix=""
-              value={benchmarks.marketing.leadsPerMonth}
-              onChange={(v) => handleNumberChange("marketing", "leadsPerMonth", v)}
-            />
-            <Field
-              label="Lead → MQL target"
-              suffix="%"
-              value={benchmarks.marketing.leadToMql}
-              onChange={(v) => handleNumberChange("marketing", "leadToMql", v)}
-            />
-            <Field
-              label="MQL → SQL target"
-              suffix="%"
-              value={benchmarks.marketing.mqlToSql}
-              onChange={(v) => handleNumberChange("marketing", "mqlToSql", v)}
-            />
-            <Field
-              label="SQL → Opp target"
-              suffix="%"
-              value={benchmarks.marketing.sqlToOpp}
-              onChange={(v) => handleNumberChange("marketing", "sqlToOpp", v)}
-            />
+        <div className="p-4 space-y-6">
+          {/* MARKETING */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-[0.18em]">
+              Marketing Funnel Targets
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <NumberField
+                label="Lead → MQL %"
+                value={benchmarks.marketing.leadToMql}
+                onChange={(v) => handleNumberChange("marketing", "leadToMql", v)}
+              />
+              <NumberField
+                label="MQL → SQL %"
+                value={benchmarks.marketing.mqlToSql}
+                onChange={(v) => handleNumberChange("marketing", "mqlToSql", v)}
+              />
+              <NumberField
+                label="SQL → Opp %"
+                value={benchmarks.marketing.sqlToOpp}
+                onChange={(v) => handleNumberChange("marketing", "sqlToOpp", v)}
+              />
+              <NumberField
+                label="Blended CAC €"
+                value={benchmarks.marketing.cac}
+                onChange={(v) => handleNumberChange("marketing", "cac", v)}
+              />
+            </div>
           </div>
 
-          {/* Sales */}
-          <div className="space-y-4 rounded-2xl bg-slate-950/40 p-4 border border-slate-800">
-            <h3 className="text-sm font-semibold">Sales</h3>
-            <Field
-              label="Opp → Proposal target"
-              suffix="%"
-              value={benchmarks.sales.oppToProposal}
-              onChange={(v) =>
-                handleNumberChange("sales", "oppToProposal", v)
-              }
-            />
-            <Field
-              label="Proposal → Win target"
-              suffix="%"
-              value={benchmarks.sales.proposalToWin}
-              onChange={(v) =>
-                handleNumberChange("sales", "proposalToWin", v)
-              }
-            />
-            <Field
-              label="ACV target"
-              suffix="€"
-              value={benchmarks.sales.acv}
-              onChange={(v) => handleNumberChange("sales", "acv", v)}
-            />
-            <Field
-              label="Sales cycle"
-              suffix="days"
-              value={benchmarks.sales.salesCycleDays}
-              onChange={(v) =>
-                handleNumberChange("sales", "salesCycleDays", v)
-              }
-            />
+          {/* SALES */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-[0.18em]">
+              Sales Funnel Targets
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <NumberField
+                label="Opp → Proposal %"
+                value={benchmarks.sales.oppToProposal}
+                onChange={(v) =>
+                  handleNumberChange("sales", "oppToProposal", v)
+                }
+              />
+              <NumberField
+                label="Proposal → Win %"
+                value={benchmarks.sales.proposalToWin}
+                onChange={(v) =>
+                  handleNumberChange("sales", "proposalToWin", v)
+                }
+              />
+              <NumberField
+                label="ACV €"
+                value={benchmarks.sales.acv}
+                onChange={(v) => handleNumberChange("sales", "acv", v)}
+              />
+            </div>
           </div>
 
-          {/* Customer Success */}
-          <div className="space-y-4 rounded-2xl bg-slate-950/40 p-4 border border-slate-800">
-            <h3 className="text-sm font-semibold">Customer Success</h3>
-            <Field
-              label="Monthly churn target"
-              suffix="%"
-              value={benchmarks.cs.churnMonthly}
-              onChange={(v) =>
-                handleNumberChange("cs", "churnMonthly", v)
-              }
-            />
-            <Field
-              label="Expansion target"
-              suffix="%"
-              value={benchmarks.cs.expansionRate}
-              onChange={(v) =>
-                handleNumberChange("cs", "expansionRate", v)
-              }
-            />
-            <Field
-              label="NRR target"
-              suffix="%"
-              value={benchmarks.cs.nrr}
-              onChange={(v) => handleNumberChange("cs", "nrr", v)}
-            />
-            <Field
-              label="Gross margin target"
-              suffix="%"
-              value={benchmarks.cs.grossMargin}
-              onChange={(v) =>
-                handleNumberChange("cs", "grossMargin", v)
-              }
-            />
+          {/* CUSTOMER SUCCESS */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-[0.18em]">
+              Customer Success Targets
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <NumberField
+                label="Annual Churn %"
+                value={benchmarks.cs.churn}
+                onChange={(v) => handleNumberChange("cs", "churn", v)}
+              />
+              <NumberField
+                label="Annual Expansion %"
+                value={benchmarks.cs.expansion}
+                onChange={(v) => handleNumberChange("cs", "expansion", v)}
+              />
+              <NumberField
+                label="NRR %"
+                value={benchmarks.cs.nrr}
+                onChange={(v) => handleNumberChange("cs", "nrr", v)}
+              />
+              <NumberField
+                label="Gross Margin %"
+                value={benchmarks.cs.grossMargin}
+                onChange={(v) => handleNumberChange("cs", "grossMargin", v)}
+              />
+            </div>
           </div>
 
-          {/* ARR Target / CAC */}
-          <div className="space-y-4 rounded-2xl bg-slate-950/40 p-4 border border-slate-800">
-            <h3 className="text-sm font-semibold">ARR Target</h3>
-            <Field
-              label="Current ARR"
-              suffix="€"
-              value={benchmarks.arr.currentArr}
-              onChange={(v) =>
-                handleNumberChange("arr", "currentArr", v)
-              }
-            />
-            <Field
-              label="ARR target"
-              suffix="€"
-              value={benchmarks.arr.arrTarget}
-              onChange={(v) =>
-                handleNumberChange("arr", "arrTarget", v)
-              }
-            />
-            <Field
-              label="Timeframe"
-              suffix="weeks"
-              value={benchmarks.arr.timeframeWeeks}
-              onChange={(v) =>
-                handleNumberChange("arr", "timeframeWeeks", v)
-              }
-            />
-            <Field
-              label="Blended CAC target"
-              suffix="€"
-              value={benchmarks.arr.blendedCac}
-              onChange={(v) =>
-                handleNumberChange("arr", "blendedCac", v)
-              }
-            />
+          {/* REVENUE TARGET */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-300 mb-3 uppercase tracking-[0.18em]">
+              ARR Targets & Timeframe
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <NumberField
+                label="Current ARR €"
+                value={benchmarks.revenue.currentArr}
+                onChange={(v) =>
+                  handleNumberChange("revenue", "currentArr", v)
+                }
+              />
+              <NumberField
+                label="ARR Target €"
+                value={benchmarks.revenue.arrTarget}
+                onChange={(v) => handleNumberChange("revenue", "arrTarget", v)}
+              />
+              <NumberField
+                label="Timeframe (weeks)"
+                value={benchmarks.revenue.timeframeWeeks}
+                onChange={(v) =>
+                  handleNumberChange("revenue", "timeframeWeeks", v)
+                }
+              />
+            </div>
+            <p className="mt-2 text-xs text-slate-400">
+              Use weeks so you are not bound to fixed quarters. For example,
+              set 20 weeks if you are mid-year with a specific board target.
+            </p>
           </div>
         </div>
       )}
@@ -241,27 +193,22 @@ export function BenchmarksPanel({ benchmarks, onChange }: Props) {
   );
 }
 
-type FieldProps = {
+type NumberFieldProps = {
   label: string;
-  suffix: string;
   value: number;
-  onChange: (v: string) => void;
+  onChange: (val: string) => void;
 };
 
-function Field({ label, suffix, value, onChange }: FieldProps) {
+function NumberField({ label, value, onChange }: NumberFieldProps) {
   return (
     <label className="block text-xs text-slate-300 space-y-1">
       <span>{label}</span>
-      <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm">
-        <input
-          className="flex-1 bg-transparent outline-none text-slate-50"
-          value={value.toString()}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        {suffix && (
-          <span className="ml-2 text-slate-500 text-xs">{suffix}</span>
-        )}
-      </div>
+      <input
+        type="number"
+        className="w-full rounded-lg bg-slate-900 border border-slate-700 px-2 py-1.5 text-xs text-slate-50 focus:outline-none focus:ring-1 focus:ring-sky-500"
+        value={Number.isNaN(value) ? "" : value}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </label>
   );
 }
