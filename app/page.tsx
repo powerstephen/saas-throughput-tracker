@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BenchmarksPanel, Benchmarks } from "@/components/BenchmarksPanel";
-import { ThroughputDashboard } from "@/components/ThroughputDashboard";
+import { MainDashboard } from "@/components/MainDashboard";
 
 const defaultBenchmarks: Benchmarks = {
   marketing: {
@@ -43,7 +43,8 @@ export default function Page() {
             SaaS Revenue Engine Dashboard
           </h1>
           <p className="text-slate-400 text-sm mt-2">
-            Key metrics: throughput, ARR run rate, full-funnel performance and forecast intelligence.
+            Key metrics: throughput, ARR run rate, full-funnel performance and forecast
+            intelligence.
           </p>
         </div>
       </header>
@@ -54,7 +55,7 @@ export default function Page() {
         onRunAnalysis={() => setShowResults(true)}
       />
 
-      {showResults && <ThroughputDashboard benchmarks={benchmarks} />}
+      {showResults && <MainDashboard benchmarks={benchmarks} />}
     </main>
   );
 }
