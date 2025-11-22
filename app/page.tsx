@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BenchmarksPanel, Benchmarks } from "@/components/BenchmarksPanel";
-import { MainDashboard } from "@/components/MainDashboard";
+import MainDashboard from "@/components/MainDashboard";
 
 const defaultBenchmarks: Benchmarks = {
   marketing: {
