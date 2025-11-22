@@ -66,7 +66,7 @@ export default function MainDashboard({
     benchmarks.revenue.arrTarget - benchmarks.revenue.currentArr;
   const neededNewArrPerWeek =
     neededNewArrTotal > 0 ? neededNewArrTotal / timeframeWeeks : 0;
-  const neededNewArrPerMonth = neededNewArrPerWeek * 4; // 4-week month for simplicity
+  const neededNewArrPerMonth = neededNewArrPerWeek * 4; // 4-week month
 
   // Bottleneck: compare actual vs target conversion
   const stages = [
@@ -120,6 +120,7 @@ export default function MainDashboard({
 
   const handleActualChange = (field: keyof Actuals, value: string | boolean) => {
     const updated: Actuals = { ...actuals };
+
     if (field === "includeCustomerSuccess") {
       updated.includeCustomerSuccess = Boolean(value);
     } else if (field === "preset") {
@@ -133,12 +134,39 @@ export default function MainDashboard({
       } else if (presetValue === "last_year") {
         updated.periodWeeks = 52;
       }
-      // custom leaves weeks as user input
+      // custom → leave periodWeeks as user-entered
     } else {
       // numeric fields
-      // @ts-expect-error index access
-      updated[field] = Number(value) || 0;
+      const num = Number(value) || 0;
+
+      switch (field) {
+        case "leads":
+          updated.leads = num;
+          break;
+        case "mqls":
+          updated.mqls = num;
+          break;
+        case "sqls":
+          updated.sqls = num;
+          break;
+        case "opps":
+          updated.opps = num;
+          break;
+        case "proposals":
+          updated.proposals = num;
+          break;
+        case "wins":
+          updated.wins = num;
+          break;
+        case "newArr":
+          updated.newArr = num;
+          break;
+        case "periodWeeks":
+          updated.periodWeeks = num;
+          break;
+      }
     }
+
     onActualsChange(updated);
   };
 
@@ -225,10 +253,15 @@ export default function MainDashboard({
                 className="rounded border-slate-600 bg-slate-900"
                 checked={includeCustomerSuccess}
                 onChange={(e) =>
-                  handleActualChange("includeCustomerSuccess", e.target.checked)
+                  handleActualChange(
+                    "includeCustomerSuccess",
+                    e.target.checked
+                  )
                 }
               />
-              <span>Include Customer Success metrics (NRR, churn, expansion)</span>
+              <span>
+                Include Customer Success metrics (NRR, churn, expansion)
+              </span>
             </label>
           </div>
         </div>
@@ -404,11 +437,12 @@ function ConversionCard({ label, actual, target }: ConversionCardProps) {
         <span className="text-[0.7rem] text-slate-400">actual</span>
       </div>
       <div className="text-xs text-slate-300">
-        Target:{" "}
-        <span className="font-semibold">{target.toFixed(1)}%</span>
+        Target: <span className="font-semibold">{target.toFixed(1)}%</span>
       </div>
       <div className={`mt-1 text-[0.7rem] ${colour}`}>
-        {diff >= 0 ? `+${diff.toFixed(1)} pts vs target` : `${diff.toFixed(1)} pts vs target`}
+        {diff >= 0
+          ? `+${diff.toFixed(1)} pts vs target`
+          : `${diff.toFixed(1)} pts vs target`}
       </div>
     </div>
   );
