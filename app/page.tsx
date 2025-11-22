@@ -51,36 +51,66 @@ export default function Page() {
     useState<Benchmarks>(defaultBenchmarks);
   const [actuals, setActuals] =
     useState<Actuals>(defaultActuals);
+  const [showBenchmarks, setShowBenchmarks] =
+    useState<boolean>(true);
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-50">
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+        {/* Header */}
         <header className="space-y-2">
           <h1 className="text-xl md:text-2xl font-semibold text-slate-50">
             SaaS Throughput & ARR Lab
           </h1>
           <p className="text-xs md:text-sm text-slate-300 max-w-3xl">
             Input your recent funnel performance and ARR numbers,
-            then compare them to your benchmarks. Use this as a
-            talking tool to diagnose bottlenecks, understand ARR
-            run rate vs target, and outline a clear growth path.
+            compare them to your benchmarks, and use the output
+            as a talking tool to diagnose bottlenecks, understand
+            ARR run rate vs target, and outline a clear growth path.
           </p>
         </header>
 
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
+        {/* Benchmarks toggle + panel */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+                Benchmarks
+              </h2>
+              <p className="text-xs text-slate-400">
+                Set or adjust your guardrails for ARR, CAC and
+                funnel conversion. You can hide this once you are
+                happy with the inputs.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setShowBenchmarks((prev) => !prev)
+              }
+              className="text-[0.7rem] px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/70 hover:bg-slate-800 transition-colors"
+            >
+              {showBenchmarks
+                ? "Hide benchmarks"
+                : "Show benchmarks"}
+            </button>
+          </div>
+
+          {showBenchmarks && (
             <BenchmarksPanel
               benchmarks={benchmarks}
               onBenchmarksChange={setBenchmarks}
             />
-          </div>
-          <div className="lg:col-span-2 space-y-6">
-            <MainDashboard
-              benchmarks={benchmarks}
-              actuals={actuals}
-              onActualsChange={setActuals}
-            />
-          </div>
+          )}
+        </section>
+
+        {/* Main dashboard (Funnel Performance + results) */}
+        <section>
+          <MainDashboard
+            benchmarks={benchmarks}
+            actuals={actuals}
+            onActualsChange={setActuals}
+          />
         </section>
       </div>
     </main>
