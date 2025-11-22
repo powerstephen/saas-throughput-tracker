@@ -1,4 +1,3 @@
-// app/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -6,7 +5,7 @@ import BenchmarksPanel, {
   BenchmarksState,
   defaultBenchmarks,
 } from "@/components/BenchmarksPanel";
-import MainDashboard from "@/components/MainDashboard"; // your existing main section
+import MainDashboard from "@/components/MainDashboard";
 
 export default function HomePage() {
   const [benchmarks, setBenchmarks] = useState<BenchmarksState>(
@@ -28,13 +27,13 @@ export default function HomePage() {
               SaaS Revenue Engine Dashboard
             </h1>
             <p className="mt-1 text-sm text-slate-300">
-              Key metrics: throughput, ARR run rate, full-funnel performance &amp;
+              Key metrics: throughput, ARR run rate, full-funnel performance and
               forecast intelligence.
             </p>
           </div>
         </header>
 
-        {/* Benchmarks */}
+        {/* Benchmarks section */}
         {showBenchmarks && (
           <BenchmarksPanel
             benchmarks={benchmarks}
@@ -44,7 +43,7 @@ export default function HomePage() {
           />
         )}
 
-        {/* Main dashboard – hidden until “Run analysis” */}
+        {/* Main dashboard – only shows after "Run analysis" */}
         {showDashboard && (
           <section className="mt-8">
             <MainDashboard benchmarks={benchmarks} />
