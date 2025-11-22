@@ -1,8 +1,6 @@
-// components/BenchmarksPanel.tsx
 "use client";
 
 import React from "react";
-import clsx from "clsx";
 
 export type Currency = "EUR" | "USD" | "GBP";
 
@@ -19,13 +17,13 @@ export type BenchmarksState = {
   proposalToWin: number;
   acv: number;
 
-  // CS
+  // Customer Success
   monthlyChurn: number;
   expansion: number;
   nrr: number;
   grossMargin: number;
 
-  // ARR Target
+  // ARR target
   currentArr: number;
   arrTarget: number;
   timeframeWeeks: number;
@@ -45,7 +43,7 @@ export const defaultBenchmarks: BenchmarksState = {
   proposalToWin: 25,
   acv: 50000,
 
-  // CS
+  // Customer Success
   monthlyChurn: 1,
   expansion: 20,
   nrr: 120,
@@ -85,7 +83,7 @@ export default function BenchmarksPanel({
 
   return (
     <section className="relative rounded-3xl bg-slate-900/80 p-6 shadow-xl ring-1 ring-slate-800">
-      {/* Top row: title + currency + hide button */}
+      {/* Top row */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Benchmarks</h2>
@@ -100,21 +98,24 @@ export default function BenchmarksPanel({
           <div className="flex items-center gap-2 text-xs">
             <span className="text-slate-400">Display currency:</span>
             <div className="flex rounded-full bg-slate-800 p-1">
-              {(["EUR", "USD", "GBP"] as Currency[]).map((cur) => (
-                <button
-                  key={cur}
-                  type="button"
-                  onClick={() => setCurrency(cur)}
-                  className={clsx(
-                    "rounded-full px-3 py-1 text-xs font-medium transition",
-                    benchmarks.currency === cur
-                      ? "bg-sky-500 text-white"
-                      : "text-slate-300 hover:bg-slate-700"
-                  )}
-                >
-                  {cur}
-                </button>
-              ))}
+              {(["EUR", "USD", "GBP"] as Currency[]).map((cur) => {
+                const isActive = benchmarks.currency === cur;
+                return (
+                  <button
+                    key={cur}
+                    type="button"
+                    onClick={() => setCurrency(cur)}
+                    className={
+                      "rounded-full px-3 py-1 text-xs font-medium transition " +
+                      (isActive
+                        ? "bg-sky-500 text-white"
+                        : "text-slate-300 hover:bg-slate-700")
+                    }
+                  >
+                    {cur}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -128,7 +129,7 @@ export default function BenchmarksPanel({
         </div>
       </div>
 
-      {/* 4-column grid: Marketing / Sales / CS / ARR Target */}
+      {/* Four columns: Marketing / Sales / CS / ARR */}
       <div className="grid gap-6 md:grid-cols-4">
         {/* Marketing */}
         <Card title="Marketing">
@@ -214,7 +215,7 @@ export default function BenchmarksPanel({
           />
         </Card>
 
-        {/* ARR target */}
+        {/* ARR Target */}
         <Card title="ARR Target">
           <Field
             label="Current ARR"
