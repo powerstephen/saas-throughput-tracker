@@ -7,7 +7,7 @@ interface Props {
   benchmarks: Benchmarks;
 }
 
-export const ThroughputDashboard: React.FC<Props> = ({ benchmarks }) => {
+export const MainDashboard: React.FC<Props> = ({ benchmarks }) => {
   const [leads, setLeads] = useState(2000);
   const [mqls, setMqls] = useState(500);
   const [sqls, setSqls] = useState(200);
@@ -132,8 +132,8 @@ export const ThroughputDashboard: React.FC<Props> = ({ benchmarks }) => {
       <div>
         <h2 className="text-lg font-semibold">Throughput & ARR Dashboard</h2>
         <p className="text-xs text-slate-400 mt-1 max-w-2xl">
-          Enter a recent period of funnel performance (for example last quarter
-          or last 3 months) to see conversion rates, ARR run rate, and where the
+          Enter a recent period of funnel performance (for example last quarter or
+          last 3 months) to see conversion rates, ARR run rate, and where the
           funnel is weakest versus your targets.
         </p>
       </div>
