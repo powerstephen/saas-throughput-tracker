@@ -71,6 +71,15 @@ function deriveActualRates(actuals: Actuals): ActualRates {
   };
 }
 
+type Scenario = {
+  id: string;
+  title: string;
+  description: string;
+  extraArr: number;
+  newArrScenario: number;
+  gapImprovement: number;
+};
+
 export default function MainDashboard() {
   const [benchmarks, setBenchmarks] = useState<Benchmarks>({
     marketing: {
@@ -89,14 +98,14 @@ export default function MainDashboard() {
       currentArr: 2000000,
       targetArr: 3500000,
       timeframeWeeks: 26,
-      avgDealSizeTarget: 50000, // target ACV
+      avgDealSizeTarget: 50000,
     },
   });
 
   const [includeCs, setIncludeCs] = useState(false);
   const [showBenchmarks, setShowBenchmarks] = useState(true);
-
   const [timeframeDays, setTimeframeDays] = useState<30 | 60 | 90>(90);
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null);
 
   const [actuals, setActuals] = useState<Actuals>({
     periodWeeks: 90 / 7,
@@ -132,6 +141,7 @@ export default function MainDashboard() {
     bottleneckActual,
     bottleneckTarget,
     stagesWithDiff,
+    worstStageKey,
   } = bottleneck;
 
   const leadReq = computeLeadRequirements(
@@ -160,6 +170,22 @@ export default function MainDashboard() {
     requiredNewArrPerMonth > 0
       ? actualNewArrPerMonth / requiredNewArrPerMonth
       : 0;
+
+  const baseArr = actuals.revenue.newArrThisPeriod;
+
+  const scenarios = computeScenarios({
+    benchmarks,
+    actuals,
+    actualRates,
+    arrGap,
+    winsPerLeadBenchmark,
+    estimatedWinsPerLeadActual,
+    avgDealSizeActual,
+    requiredLeadsTotal,
+    worstStageKey,
+  });
+
+  const selectedScenario = scenarios.find((s) => s.id === selectedScenarioId);
 
   return (
     <div className="space-y-6">
@@ -307,14 +333,14 @@ export default function MainDashboard() {
           </div>
         </div>
 
-        {/* New ARR + ACV + CS toggle row */}
+        {/* New ARR + ACV + CS toggle row – 3 equal boxes */}
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
           {/* New ARR */}
           <label className="text-xs text-slate-200 flex flex-col">
-            New ARR in this timeframe (€)
+            <span className="mb-1">New ARR in this timeframe (€)</span>
             <input
               type="number"
-              className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-50 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              className="bg-slate-950 border border-slate-700 rounded-md px-2 py-2 text-xs text-slate-50 focus:outline-none focus:ring-1 focus:ring-cyan-500"
               value={actuals.revenue.newArrThisPeriod}
               onChange={(e) =>
                 setActuals((prev) => ({
@@ -326,36 +352,36 @@ export default function MainDashboard() {
                 }))
               }
             />
-            <span className="text-[10px] text-slate-400 mt-1">
+            <span className="text-[10px] text-slate-400 mt-2">
               Total new ARR closed in this period.
             </span>
           </label>
 
           {/* ACV */}
           <label className="text-xs text-slate-200 flex flex-col">
-            Average contract value (ACV)
+            <span className="mb-1">Average contract value (ACV)</span>
             <input
               type="text"
               readOnly
-              className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-50"
+              className="bg-slate-950 border border-slate-700 rounded-md px-2 py-2 text-xs text-slate-50"
               value={
                 avgDealSizeActual > 0
                   ? `€${Math.round(avgDealSizeActual).toLocaleString()}`
                   : "Enter wins and ARR to calculate ACV"
               }
             />
-            <span className="text-[10px] text-slate-400 mt-1">
+            <span className="text-[10px] text-slate-400 mt-2">
               Calculated as New ARR / Wins in this timeframe.
             </span>
           </label>
 
           {/* CS toggle as equal-sized box */}
           <div className="text-xs text-slate-200 flex flex-col">
-            <span>Include Customer Success (NRR) in ARR path</span>
+            <span className="mb-1">Include Customer Success (NRR) in ARR path</span>
             <button
               type="button"
               onClick={() => setIncludeCs((v) => !v)}
-              className={`mt-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors
+              className={`rounded-md border px-2 py-2 text-xs font-medium transition-colors
                 ${
                   includeCs
                     ? "bg-emerald-600/20 border-emerald-500 text-emerald-200"
@@ -364,14 +390,14 @@ export default function MainDashboard() {
             >
               {includeCs ? "Included" : "Excluded"}
             </button>
-            <span className="text-[10px] text-slate-400 mt-1">
+            <span className="text-[10px] text-slate-400 mt-2">
               Toggle to factor NRR into your ARR forecast and gap.
             </span>
           </div>
         </div>
       </section>
 
-      {/* Key metrics strip */}
+      {/* Key metrics strip – more prominent, aligned numbers */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           label="ACV vs target"
@@ -400,14 +426,24 @@ export default function MainDashboard() {
         <StatCard
           label="Forecast ARR at end of target period"
           value={`€${Math.round(forecastArrEnd).toLocaleString()}`}
-          helper="Based on current run rate and NRR setting."
+          helper={
+            selectedScenario
+              ? `Scenario: €${Math.round(
+                  forecastArrEnd + selectedScenario.extraArr
+                ).toLocaleString()} if applied.`
+              : "Based on current run rate and NRR setting."
+          }
           tone={arrGap <= 0 ? "good" : "bad"}
         />
         <StatCard
           label="Gap to target ARR"
           value={`€${Math.round(arrGap).toLocaleString()}`}
           helper={
-            arrGap > 0
+            selectedScenario
+              ? `Scenario reduces gap by ~€${Math.round(
+                  Math.min(selectedScenario.gapImprovement, arrGap)
+                ).toLocaleString()}.`
+              : arrGap > 0
               ? "Additional ARR needed to hit target."
               : "On track or above target at current run rate."
           }
@@ -605,6 +641,100 @@ export default function MainDashboard() {
           ))}
         </div>
       </section>
+
+      {/* Priority scenarios section */}
+      <section className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-slate-50">
+          Priority scenarios to improve outcome
+        </h3>
+        <p className="text-xs text-slate-400">
+          These are the top levers that would move ARR in this timeframe the most, based
+          on your current inputs and benchmarks.
+        </p>
+
+        {scenarios.length === 0 ? (
+          <p className="text-xs text-slate-500">
+            Enter some funnel data and ARR to see suggested scenarios.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+            {scenarios.map((s) => (
+              <div
+                key={s.id}
+                className={`rounded-lg border p-3 bg-slate-950/70 space-y-2 ${
+                  selectedScenarioId === s.id
+                    ? "border-cyan-500/60 shadow-[0_0_0_1px_rgba(34,211,238,0.4)]"
+                    : "border-slate-800"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-semibold text-slate-50 mb-1">
+                      {s.title}
+                    </div>
+                    <p className="text-[11px] text-slate-400">{s.description}</p>
+                  </div>
+                </div>
+                <div className="mt-1 space-y-1 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Extra ARR this timeframe</span>
+                    <span className="font-semibold text-emerald-400">
+                      {s.extraArr > 0
+                        ? `€${Math.round(s.extraArr).toLocaleString()}`
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">
+                      Gap reduction (approx)
+                    </span>
+                    <span className="font-semibold text-emerald-300">
+                      {s.gapImprovement > 0
+                        ? `€${Math.round(
+                            Math.min(s.gapImprovement, arrGap)
+                          ).toLocaleString()}`
+                        : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedScenarioId(
+                      selectedScenarioId === s.id ? null : s.id
+                    )
+                  }
+                  className="mt-2 w-full rounded-md border border-cyan-500/70 bg-cyan-500/10 px-2 py-1.5 text-[11px] font-medium text-cyan-100 hover:bg-cyan-500/20 transition-colors"
+                >
+                  {selectedScenarioId === s.id ? "Hide scenario impact" : "Show scenario impact"}
+                </button>
+
+                {selectedScenarioId === s.id && (
+                  <div className="mt-2 border-t border-slate-800 pt-2 text-[11px] space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">New ARR (current)</span>
+                      <span className="font-medium text-slate-50">
+                        €{Math.round(baseArr).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">New ARR (scenario)</span>
+                      <span className="font-medium text-emerald-300">
+                        €{Math.round(s.newArrScenario).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      The main metrics above show an approximate impact on forecast ARR
+                      and gap if this scenario is applied.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -638,7 +768,7 @@ function FunnelBox({
         inputMode="decimal"
         value={Number.isNaN(count) ? "" : count}
         onChange={(e) => onChange(Number(e.target.value) || 0)}
-        className="w-full bg-slate-900 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-50 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+        className="w-full bg-slate-900 border border-slate-700 rounded-md px-2 py-1.5 text-xs text-slate-50 focus:outline-none focus:ring-1 focus:ring-cyan-500"
       />
       {showRates &&
         rateLabel &&
@@ -690,19 +820,25 @@ function StatCard({ label, value, helper, tone = "neutral" }: StatCardProps) {
       : "";
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col gap-1">
+    <div className="bg-slate-900/95 border border-slate-700 rounded-xl px-3 py-3 flex flex-col gap-1 shadow-sm">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-xs text-slate-300">{label}</div>
+        <div className="text-[11px] text-slate-300">{label}</div>
         {badgeText && (
           <span
-            className={`text-[10px] px-2 py-0.5 rounded-full border ${badgeColor}`}
+            className={`text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap ${badgeColor}`}
           >
             {badgeText}
           </span>
         )}
       </div>
-      <div className={`text-lg font-semibold ${valueColor}`}>{value}</div>
-      {helper && <div className="text-[11px] text-slate-400">{helper}</div>}
+      <div className={`text-xl font-semibold tracking-tight text-right ${valueColor}`}>
+        {value}
+      </div>
+      {helper && (
+        <div className="text-[10px] text-slate-400 leading-snug text-right">
+          {helper}
+        </div>
+      )}
     </div>
   );
 }
@@ -809,6 +945,7 @@ function computeBottleneck(benchmarks: Benchmarks, actualRates: ActualRates) {
     bottleneckActual: worst && worst.diff < 0 ? worst.actual : 0,
     bottleneckTarget: worst && worst.diff < 0 ? worst.target : 0,
     stagesWithDiff: stageDiffs,
+    worstStageKey: worst ? worst.key : null,
   };
 }
 
@@ -872,4 +1009,136 @@ function computeLeadRequirements(
     currentLeadsPerWeek,
     avgDealSizeActual,
   };
+}
+
+function computeScenarios(params: {
+  benchmarks: Benchmarks;
+  actuals: Actuals;
+  actualRates: ActualRates;
+  arrGap: number;
+  winsPerLeadBenchmark: number;
+  estimatedWinsPerLeadActual: number;
+  avgDealSizeActual: number;
+  requiredLeadsTotal: number;
+  worstStageKey: FunnelStageKey | null;
+}): Scenario[] {
+  const {
+    benchmarks,
+    actuals,
+    actualRates,
+    arrGap,
+    winsPerLeadBenchmark,
+    estimatedWinsPerLeadActual,
+    avgDealSizeActual,
+    requiredLeadsTotal,
+    worstStageKey,
+  } = params;
+
+  const baseArr = actuals.revenue.newArrThisPeriod;
+  const baseWinsObserved = actuals.funnel.wins;
+
+  let acv = avgDealSizeActual;
+  if (!acv || !isFinite(acv)) {
+    if (baseWinsObserved > 0 && baseArr > 0) {
+      acv = baseArr / baseWinsObserved;
+    } else {
+      acv = benchmarks.revenue.avgDealSizeTarget || 0;
+    }
+  }
+  if (!acv || !isFinite(acv)) {
+    return [];
+  }
+
+  const scenarios: Scenario[] = [];
+
+  // Scenario 1: Fix the single worst bottleneck back to benchmark
+  if (worstStageKey) {
+    const scenarioRates: ActualRates = { ...actualRates };
+    switch (worstStageKey) {
+      case "leadsToMql":
+        scenarioRates.leadsToMql = benchmarks.marketing.leadsToMql;
+        break;
+      case "mqlToSql":
+        scenarioRates.mqlToSql = benchmarks.marketing.mqlToSql;
+        break;
+      case "sqlToOpp":
+        scenarioRates.sqlToOpp = benchmarks.sales.sqlToOpp;
+        break;
+      case "oppToProp":
+        scenarioRates.oppToProp = benchmarks.sales.oppToProp;
+        break;
+      case "propToWin":
+        scenarioRates.propToWin = benchmarks.sales.propToWin;
+        break;
+    }
+
+    const chainScenario =
+      (scenarioRates.leadsToMql / 100 || 0) *
+      (scenarioRates.mqlToSql / 100 || 0) *
+      (scenarioRates.sqlToOpp / 100 || 0) *
+      (scenarioRates.oppToProp / 100 || 0) *
+      (scenarioRates.propToWin / 100 || 0);
+
+    const winsScenario =
+      actuals.funnel.leads > 0 ? actuals.funnel.leads * chainScenario : 0;
+    const newArrScenario = winsScenario * acv;
+    const extraArr = newArrScenario - baseArr;
+    const gapImprovement = Math.max(Math.min(extraArr, arrGap), 0);
+
+    if (extraArr > 0.01) {
+      scenarios.push({
+        id: "fix-bottleneck",
+        title: "Fix weakest conversion back to benchmark",
+        description:
+          "Bring the single weakest funnel stage back to its target conversion rate for this period.",
+        extraArr,
+        newArrScenario,
+        gapImprovement,
+      });
+    }
+  }
+
+  // Scenario 2: Bring all stages up to benchmark
+  if (winsPerLeadBenchmark > 0 && actuals.funnel.leads > 0) {
+    const winsScenario2 = actuals.funnel.leads * winsPerLeadBenchmark;
+    const newArrScenario2 = winsScenario2 * acv;
+    const extraArr2 = newArrScenario2 - baseArr;
+    const gapImprovement2 = Math.max(Math.min(extraArr2, arrGap), 0);
+
+    if (extraArr2 > 0.01) {
+      scenarios.push({
+        id: "all-to-benchmark",
+        title: "Bring all stages up to benchmark",
+        description:
+          "Lift each conversion step back to its target rate while keeping lead volume constant.",
+        extraArr: extraArr2,
+        newArrScenario: newArrScenario2,
+        gapImprovement: gapImprovement2,
+      });
+    }
+  }
+
+  // Scenario 3: Hit required lead volume at benchmark rates
+  if (requiredLeadsTotal > 0 && winsPerLeadBenchmark > 0) {
+    const winsScenario3 = requiredLeadsTotal * winsPerLeadBenchmark;
+    const newArrScenario3 = winsScenario3 * acv;
+    const extraArr3 = newArrScenario3 - baseArr;
+    const gapImprovement3 = Math.max(Math.min(extraArr3, arrGap), 0);
+
+    if (extraArr3 > 0.01) {
+      scenarios.push({
+        id: "hit-required-leads",
+        title: "Hit required lead volume",
+        description:
+          "Scale lead volume to the level required to reach ARR target at benchmark conversion rates.",
+        extraArr: extraArr3,
+        newArrScenario: newArrScenario3,
+        gapImprovement: gapImprovement3,
+      });
+    }
+  }
+
+  return scenarios
+    .sort((a, b) => b.extraArr - a.extraArr)
+    .slice(0, 3);
 }
