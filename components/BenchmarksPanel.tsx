@@ -3,195 +3,183 @@
 import React from "react";
 
 export type Benchmarks = {
-  revenue: {
-    currentArr: number;
-    arrTarget: number;
-    timeframeWeeks: number;
-    blendedCacTarget: number;
-  };
   marketing: {
-    leadToMql: number;
+    leadsToMql: number;
     mqlToSql: number;
-    sqlToOpp: number;
   };
   sales: {
-    oppToProposal: number;
-    proposalToWin: number;
+    sqlToOpp: number;
+    oppToProp: number;
+    propToWin: number;
   };
   cs: {
-    nrr: number;
-    grossMargin: number;
+    nrrTarget: number; // percentage, eg 110 = 110%
+  };
+  revenue: {
+    currentArr: number;
+    targetArr: number;
+    timeframeWeeks: number;
   };
 };
 
-type Props = {
+type BenchmarksPanelProps = {
   benchmarks: Benchmarks;
-  onBenchmarksChange: (b: Benchmarks) => void;
+  onChange: (next: Benchmarks) => void;
+  show: boolean;
+  onToggleShow: () => void;
 };
 
-export function BenchmarksPanel({
+export default function BenchmarksPanel({
   benchmarks,
-  onBenchmarksChange,
-}: Props) {
-  const { revenue, marketing, sales, cs } = benchmarks;
-
+  onChange,
+  show,
+  onToggleShow,
+}: BenchmarksPanelProps) {
   const handleChange = (
     section: keyof Benchmarks,
     field: string,
     value: string
   ) => {
-    const num = Number(value) || 0;
-    const updated: Benchmarks = JSON.parse(
-      JSON.stringify(benchmarks)
-    );
+    const next: Benchmarks = JSON.parse(JSON.stringify(benchmarks));
+    const numeric = Number(value) || 0;
 
-    // @ts-ignore simple nested assignment
-    updated[section][field] = num;
-    onBenchmarksChange(updated);
+    // @ts-ignore - simple nested assign
+    next[section][field] = numeric;
+    onChange(next);
   };
 
   return (
-    <section className="border border-slate-800 rounded-2xl bg-slate-900/80 shadow-lg p-4 space-y-4">
-      <div>
-        <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
-          Benchmark Settings
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold text-slate-50">
+          Benchmarks and Targets
         </h2>
-        <p className="text-xs text-slate-400 mt-1">
-          Set your guardrails for ARR, CAC, funnel conversion, and
-          Customer Success. The main dashboard compares actuals
-          against these targets.
-        </p>
+        <button
+          type="button"
+          onClick={onToggleShow}
+          className="text-xs px-3 py-1 rounded border border-slate-700 text-slate-200 hover:bg-slate-800"
+        >
+          {show ? "Hide benchmarks" : "Show benchmarks"}
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {/* Revenue benchmarks */}
-        <div className="border border-slate-800 rounded-2xl bg-slate-950/40 p-3 space-y-2">
-          <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-300">
-            Revenue
-          </h3>
-          <NumberField
-            label="Current ARR (€)"
-            value={revenue.currentArr}
-            onChange={(v) =>
-              handleChange("revenue", "currentArr", v)
-            }
-          />
-          <NumberField
-            label="ARR target (€)"
-            value={revenue.arrTarget}
-            onChange={(v) =>
-              handleChange("revenue", "arrTarget", v)
-            }
-          />
-          <NumberField
-            label="Timeframe (weeks)"
-            value={revenue.timeframeWeeks}
-            onChange={(v) =>
-              handleChange("revenue", "timeframeWeeks", v)
-            }
-          />
-          <NumberField
-            label="Blended CAC target (€)"
-            value={revenue.blendedCacTarget}
-            onChange={(v) =>
-              handleChange("revenue", "blendedCacTarget", v)
-            }
-          />
-        </div>
+      {show && (
+        <div className="bg-slate-900/70 border border-slate-700 rounded-xl p-4 space-y-4">
+          {/* Top row: Marketing + Sales */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Marketing */}
+            <div>
+              <h3 className="text-sm font-semibold text-slate-200 mb-2">
+                Marketing funnel targets
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <LabeledInput
+                  label="Leads → MQL (%)"
+                  value={benchmarks.marketing.leadsToMql}
+                  onChange={(v) => handleChange("marketing", "leadsToMql", v)}
+                />
+                <LabeledInput
+                  label="MQL → SQL (%)"
+                  value={benchmarks.marketing.mqlToSql}
+                  onChange={(v) => handleChange("marketing", "mqlToSql", v)}
+                />
+              </div>
+            </div>
 
-        {/* Marketing conversion */}
-        <div className="border border-slate-800 rounded-2xl bg-slate-950/40 p-3 space-y-2">
-          <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-300">
-            Marketing Funnel
-          </h3>
-          <NumberField
-            label="Lead → MQL (%)"
-            value={marketing.leadToMql}
-            onChange={(v) =>
-              handleChange("marketing", "leadToMql", v)
-            }
-          />
-          <NumberField
-            label="MQL → SQL (%)"
-            value={marketing.mqlToSql}
-            onChange={(v) =>
-              handleChange("marketing", "mqlToSql", v)
-            }
-          />
-          <NumberField
-            label="SQL → Opp (%)"
-            value={marketing.sqlToOpp}
-            onChange={(v) =>
-              handleChange("marketing", "sqlToOpp", v)
-            }
-          />
-        </div>
+            {/* Sales */}
+            <div>
+              <h3 className="text-sm font-semibold text-slate-200 mb-2">
+                Sales funnel targets
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                <LabeledInput
+                  label="SQL → Opp (%)"
+                  value={benchmarks.sales.sqlToOpp}
+                  onChange={(v) => handleChange("sales", "sqlToOpp", v)}
+                />
+                <LabeledInput
+                  label="Opp → Proposal (%)"
+                  value={benchmarks.sales.oppToProp}
+                  onChange={(v) => handleChange("sales", "oppToProp", v)}
+                />
+                <LabeledInput
+                  label="Proposal → Win (%)"
+                  value={benchmarks.sales.propToWin}
+                  onChange={(v) => handleChange("sales", "propToWin", v)}
+                />
+              </div>
+            </div>
+          </div>
 
-        {/* Sales funnel */}
-        <div className="border border-slate-800 rounded-2xl bg-slate-950/40 p-3 space-y-2">
-          <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-300">
-            Sales Funnel
-          </h3>
-          <NumberField
-            label="Opp → Proposal (%)"
-            value={sales.oppToProposal}
-            onChange={(v) =>
-              handleChange("sales", "oppToProposal", v)
-            }
-          />
-          <NumberField
-            label="Proposal → Win (%)"
-            value={sales.proposalToWin}
-            onChange={(v) =>
-              handleChange("sales", "proposalToWin", v)
-            }
-          />
-        </div>
+          {/* Bottom row: CS + Revenue */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* CS */}
+            <div>
+              <h3 className="text-sm font-semibold text-slate-200 mb-2">
+                Customer success (optional)
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <LabeledInput
+                  label="NRR target (%)"
+                  value={benchmarks.cs.nrrTarget}
+                  onChange={(v) => handleChange("cs", "nrrTarget", v)}
+                />
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                If you choose to include CS, this NRR target will be used to
+                estimate how much ARR growth comes from the existing base versus
+                net new.
+              </p>
+            </div>
 
-        {/* CS */}
-        <div className="border border-slate-800 rounded-2xl bg-slate-950/40 p-3 space-y-2">
-          <h3 className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-300">
-            Customer Success
-          </h3>
-          <NumberField
-            label="NRR target (%)"
-            value={cs.nrr}
-            onChange={(v) =>
-              handleChange("cs", "nrr", v)
-            }
-          />
-          <NumberField
-            label="Gross margin (%)"
-            value={cs.grossMargin}
-            onChange={(v) =>
-              handleChange("cs", "grossMargin", v)
-            }
-          />
+            {/* Revenue */}
+            <div>
+              <h3 className="text-sm font-semibold text-slate-200 mb-2">
+                Revenue targets
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                <LabeledInput
+                  label="Current ARR (€)"
+                  value={benchmarks.revenue.currentArr}
+                  onChange={(v) => handleChange("revenue", "currentArr", v)}
+                />
+                <LabeledInput
+                  label="Target ARR (€)"
+                  value={benchmarks.revenue.targetArr}
+                  onChange={(v) => handleChange("revenue", "targetArr", v)}
+                />
+                <LabeledInput
+                  label="Timeframe (weeks)"
+                  value={benchmarks.revenue.timeframeWeeks}
+                  onChange={(v) =>
+                    handleChange("revenue", "timeframeWeeks", v)
+                  }
+                />
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
+      )}
+    </div>
   );
 }
 
-type NumberFieldProps = {
+type LabeledInputProps = {
   label: string;
   value: number;
-  onChange: (val: string) => void;
+  onChange: (v: string) => void;
 };
 
-function NumberField({
-  label,
-  value,
-  onChange,
-}: NumberFieldProps) {
+function LabeledInput({ label, value, onChange }: LabeledInputProps) {
   return (
-    <label className="block text-[0.7rem] text-slate-300 space-y-1">
-      <span>{label}</span>
+    <label className="flex flex-col gap-1">
+      <span className="text-xs text-slate-300">{label}</span>
       <input
         type="number"
-        className="w-full rounded-lg bg-slate-900 border border-slate-700 px-2 py-1.5 text-xs text-slate-50 focus:outline-none focus:ring-1 focus:ring-sky-500"
+        inputMode="decimal"
         value={Number.isNaN(value) ? "" : value}
         onChange={(e) => onChange(e.target.value)}
+        className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
       />
     </label>
   );
