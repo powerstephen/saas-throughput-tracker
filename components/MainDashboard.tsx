@@ -161,14 +161,8 @@ export default function MainDashboard() {
   } = leadReq;
 
   const timeframeLabel = `${timeframeDays} days`;
-  const acvTarget = benchmarks.revenue.avgDealSizeTarget;
-  const acvDiffPct =
-    acvTarget > 0 && avgDealSizeActual > 0
-      ? ((avgDealSizeActual - acvTarget) / acvTarget) * 100
-      : 0;
-
-  const baseArr = actuals.revenue.newArrThisPeriod;
   const targetArr = benchmarks.revenue.targetArr;
+  const baseArr = actuals.revenue.newArrThisPeriod;
 
   const scenarios = computeScenarios({
     benchmarks,
@@ -407,28 +401,10 @@ export default function MainDashboard() {
       {/* Hero metrics */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
-          label="ACV vs target"
-          value={
-            avgDealSizeActual > 0
-              ? `€${Math.round(avgDealSizeActual).toLocaleString()}`
-              : "—"
-          }
-          helper={
-            avgDealSizeActual > 0 && acvTarget > 0
-              ? `Benchmark €${Math.round(acvTarget).toLocaleString()} · ${
-                  acvDiffPct >= 0 ? "+" : ""
-                }${acvDiffPct.toFixed(1)}%`
-              : "Enter ARR and wins to see ACV vs target."
-          }
-          tone={
-            avgDealSizeActual > 0 && acvTarget > 0
-              ? acvDiffPct >= 0
-                ? "good"
-                : acvDiffPct > -5
-                ? "neutral"
-                : "bad"
-              : "neutral"
-          }
+          label="Target ARR for this period"
+          value={`€${targetArr.toLocaleString()}`}
+          helper="Goal you are working towards in the selected timeframe."
+          tone="neutral"
         />
         <StatCard
           label="Forecast ARR at end of target period"
@@ -836,25 +812,25 @@ function StatCard({ label, value, helper, tone = "neutral" }: StatCardProps) {
       : "bg-slate-800/60 text-slate-300 border-slate-700/60";
 
   return (
-    <div className="bg-slate-900/95 border border-slate-700 rounded-xl px-3 py-3 flex flex-col gap-1 shadow-sm">
-      {/* Heading */}
-      <div className="text-[11px] text-slate-300">{label}</div>
+    <div className="bg-slate-900/95 border border-slate-700 rounded-xl px-3 py-3 flex flex-col justify-between gap-1 shadow-sm">
+      {/* Heading (max 2 lines) */}
+      <div className="text-[11px] text-slate-300 leading-snug min-h-[28px]">
+        {label}
+      </div>
 
       {/* Number */}
       <div className={`text-xl font-semibold tracking-tight ${valueColor}`}>
         {value}
       </div>
 
-      {/* Explainer */}
-      {helper && (
-        <div className="text-[10px] text-slate-400 leading-snug">
-          {helper}
-        </div>
-      )}
+      {/* Explainer (max ~2 lines) */}
+      <div className="text-[10px] text-slate-400 leading-snug min-h-[28px]">
+        {helper ?? ""}
+      </div>
 
       {/* Status pill at bottom */}
       {statusText && (
-        <div className="mt-2">
+        <div className="mt-1">
           <span
             className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] ${statusClasses}`}
           >
