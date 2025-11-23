@@ -40,14 +40,20 @@ const HeroCard: React.FC<HeroCardProps> = ({
       : "bg-rose-500/10 text-rose-300 border-rose-500/50";
 
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-950/60 px-5 py-5 shadow-sm">
+    <div className="flex h-full flex-col justify-between rounded-2xl border border-slate-800 bg-slate-950/60 px-5 py-5 shadow-sm">
       <h3 className="mb-2 text-sm font-medium leading-snug text-slate-100">
         {title}
       </h3>
-      <div className="mb-2 text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">
-        {value}
+
+      {/* fixed-height value row so all numbers align */}
+      <div className="mb-2 flex min-h-[2.6rem] items-end">
+        <span className="text-2xl font-semibold tracking-tight text-slate-50 md:text-[26px]">
+          {value}
+        </span>
       </div>
+
       <p className="mb-4 text-xs leading-snug text-slate-400">{description}</p>
+
       <span
         className={`inline-flex w-max items-center justify-center rounded-full border px-3 py-1 text-[11px] font-medium ${statusClasses}`}
       >
@@ -250,21 +256,21 @@ const MainDashboard: React.FC<Props> = ({
       {
         label: `Fix ${weakest.label} to benchmark`,
         description:
-          "Lift the weakest conversion step to its target while keeping lead volume flat.",
+          "Lift the weakest conversion step to its target while keeping lead volume flat. If you’re already at or above target, this will show little to no change.",
         deltaForecastArr: sFix.forecastArr - forecastArrBase,
         deltaGap: gapBase - sFix.gap,
       },
       {
         label: "Increase qualified leads by 20%",
         description:
-          "Keep conversion rates as-is but improve lead volume by 20%.",
+          "Keep conversion rates as-is but improve qualified lead volume by 20%.",
         deltaForecastArr: sBoostLeads.forecastArr - forecastArrBase,
         deltaGap: gapBase - sBoostLeads.gap,
       },
       {
         label: "Fix weakest step + 20% more leads",
         description:
-          "Combine both: bring weakest step to target and increase qualified leads by 20%.",
+          "Combine both: bring the weakest step to target and increase qualified leads by 20%.",
         deltaForecastArr: sCombo.forecastArr - forecastArrBase,
         deltaGap: gapBase - sCombo.gap,
       },
@@ -289,7 +295,6 @@ const MainDashboard: React.FC<Props> = ({
 
   // combine base + scenario-adjusted figures for hero cards
   const heroAggregates = useMemo(() => {
-    const b = baseMetrics;
     const s = scenarioMetrics;
 
     const effectiveForecastArr = s.forecastArr;
@@ -316,7 +321,7 @@ const MainDashboard: React.FC<Props> = ({
       requiredMonthlyRunRate,
       timeframeLabel: actuals.timeframeLabel,
     };
-  }, [baseMetrics, scenarioMetrics, benchmarks.revenue, actuals]);
+  }, [scenarioMetrics, benchmarks.revenue, actuals]);
 
   // ----- UI handlers -----
 
@@ -488,12 +493,19 @@ const MainDashboard: React.FC<Props> = ({
               : "attention"
           }
         />
+
+        {/* GAP card: show behind vs ahead, no clamping to zero */}
         <HeroCard
           title="Gap to target ARR"
-          value={formatCurrency(Math.max(heroAggregates.gap, 0))}
-          description="Additional ARR needed to hit the target."
+          value={formatCurrency(Math.abs(heroAggregates.gap))}
+          description={
+            heroAggregates.gap >= 0
+              ? "Additional ARR needed to hit the target."
+              : "You are ahead of target by this amount."
+          }
           status={heroAggregates.gap <= 0 ? "on-track" : "attention"}
         />
+
         <HeroCard
           title="Current run rate (monthly)"
           value={formatCurrency(heroAggregates.currentMonthlyRunRate)}
