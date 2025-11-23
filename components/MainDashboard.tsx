@@ -156,7 +156,6 @@ export default function MainDashboard() {
       ? ((avgDealSizeActual - acvTarget) / acvTarget) * 100
       : 0;
 
-  // run-rate comparison for colour
   const runRateRatio =
     requiredNewArrPerMonth > 0
       ? actualNewArrPerMonth / requiredNewArrPerMonth
@@ -166,12 +165,12 @@ export default function MainDashboard() {
     <div className="space-y-6">
       {/* Heading */}
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-slate-900">
+        <h1 className="text-2xl font-semibold text-slate-50">
           SaaS Throughput and ARR Path
         </h1>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-slate-300">
           Input a recent period of funnel performance, compare it to your own benchmarks,
-          and see ACV, ARR run rate, and lead volume needed to hit target.
+          and see ACV, ARR run rate, and required lead volume to hit target.
         </p>
       </header>
 
@@ -184,25 +183,24 @@ export default function MainDashboard() {
       />
 
       {/* Actuals input card */}
-      <section className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 space-y-4">
-        {/* Top row: timeframe + CS toggle */}
+      <section className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4">
+        {/* Top row: timeframe */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-slate-100">
+            <h2 className="text-sm font-semibold text-slate-50">
               Funnel and ARR performance for a recent period
             </h2>
             <p className="text-xs text-slate-400">
-              Choose a recent timeframe (30, 60, or 90 days), enter funnel counts, and
-              the calculator will derive conversion rates, ACV, ARR run rate, and required
-              lead volume.
+              Choose a timeframe, enter funnel counts, and the calculator will derive
+              conversion rates, ACV, ARR run rate, and required lead volume.
             </p>
           </div>
 
           <div className="flex flex-wrap items-end gap-3">
-            <label className="text-xs text-slate-300 flex flex-col">
+            <label className="text-xs text-slate-200 flex flex-col">
               Timeframe
               <select
-                className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-100"
+                className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-50"
                 value={timeframeDays}
                 onChange={(e) => {
                   const days = Number(e.target.value) as 30 | 60 | 90;
@@ -219,22 +217,12 @@ export default function MainDashboard() {
                 <option value={90}>90 days</option>
               </select>
             </label>
-
-            <label className="flex items-center gap-2 text-xs text-slate-300 mt-1">
-              <input
-                type="checkbox"
-                checked={includeCs}
-                onChange={(e) => setIncludeCs(e.target.checked)}
-              />
-              Include Customer Success (NRR) in ARR path
-            </label>
           </div>
         </div>
 
         {/* Funnel row: Leads → Wins */}
         <div className="overflow-x-auto">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 min-w-[600px]">
-            {/* Leads */}
             <FunnelBox
               title="Leads"
               count={actuals.funnel.leads}
@@ -247,7 +235,6 @@ export default function MainDashboard() {
               showRates={false}
             />
 
-            {/* MQLs */}
             <FunnelBox
               title="MQLs"
               count={actuals.funnel.mqls}
@@ -262,7 +249,6 @@ export default function MainDashboard() {
               rateLabel="Leads → MQL"
             />
 
-            {/* SQLs */}
             <FunnelBox
               title="SQLs"
               count={actuals.funnel.sqls}
@@ -277,7 +263,6 @@ export default function MainDashboard() {
               rateLabel="MQL → SQL"
             />
 
-            {/* Opps */}
             <FunnelBox
               title="Opportunities"
               count={actuals.funnel.opps}
@@ -292,7 +277,6 @@ export default function MainDashboard() {
               rateLabel="SQL → Opp"
             />
 
-            {/* Proposals */}
             <FunnelBox
               title="Proposals"
               count={actuals.funnel.proposals}
@@ -307,7 +291,6 @@ export default function MainDashboard() {
               rateLabel="Opp → Proposal"
             />
 
-            {/* Wins */}
             <FunnelBox
               title="Wins"
               count={actuals.funnel.wins}
@@ -324,13 +307,14 @@ export default function MainDashboard() {
           </div>
         </div>
 
-        {/* New ARR + ACV row */}
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label className="text-xs text-slate-300 flex flex-col">
+        {/* New ARR + ACV + CS toggle row */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* New ARR */}
+          <label className="text-xs text-slate-200 flex flex-col">
             New ARR in this timeframe (€)
             <input
               type="number"
-              className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-50 focus:outline-none focus:ring-1 focus:ring-cyan-500"
               value={actuals.revenue.newArrThisPeriod}
               onChange={(e) =>
                 setActuals((prev) => ({
@@ -342,27 +326,48 @@ export default function MainDashboard() {
                 }))
               }
             />
-            <span className="text-[10px] text-slate-500 mt-1">
+            <span className="text-[10px] text-slate-400 mt-1">
               Total new ARR closed in this period.
             </span>
           </label>
 
-          <label className="text-xs text-slate-300 flex flex-col">
+          {/* ACV */}
+          <label className="text-xs text-slate-200 flex flex-col">
             Average contract value (ACV)
             <input
               type="text"
               readOnly
-              className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-100"
+              className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-50"
               value={
                 avgDealSizeActual > 0
                   ? `€${Math.round(avgDealSizeActual).toLocaleString()}`
                   : "Enter wins and ARR to calculate ACV"
               }
             />
-            <span className="text-[10px] text-slate-500 mt-1">
+            <span className="text-[10px] text-slate-400 mt-1">
               Calculated as New ARR / Wins in this timeframe.
             </span>
           </label>
+
+          {/* CS toggle as equal-sized box */}
+          <div className="text-xs text-slate-200 flex flex-col">
+            <span>Include Customer Success (NRR) in ARR path</span>
+            <button
+              type="button"
+              onClick={() => setIncludeCs((v) => !v)}
+              className={`mt-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors
+                ${
+                  includeCs
+                    ? "bg-emerald-600/20 border-emerald-500 text-emerald-200"
+                    : "bg-slate-950 border-slate-700 text-slate-50"
+                }`}
+            >
+              {includeCs ? "Included" : "Excluded"}
+            </button>
+            <span className="text-[10px] text-slate-400 mt-1">
+              Toggle to factor NRR into your ARR forecast and gap.
+            </span>
+          </div>
         </div>
       </section>
 
@@ -431,41 +436,42 @@ export default function MainDashboard() {
       {/* Results: overview cards */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* ARR overview */}
-        <div className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 space-y-2">
-          <h3 className="text-sm font-semibold text-slate-100">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+          <h3 className="text-sm font-semibold text-slate-50">
             ARR run rate versus target
           </h3>
           <p className="text-xs text-slate-400">
-            Based on your current new ARR pace, time to target, and optional NRR impact.
+            Based on your current new ARR pace, time to target, and optional NRR
+            impact.
           </p>
           <div className="mt-2 space-y-1 text-sm">
             <div className="flex justify-between">
               <span className="text-slate-300">Target ARR</span>
-              <span className="font-medium">
+              <span className="font-medium text-slate-50">
                 €{benchmarks.revenue.targetArr.toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-300">Forecast ARR</span>
-              <span className="font-medium">
+              <span className="font-medium text-slate-50">
                 €{Math.round(forecastArrEnd).toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-300">Gap to target</span>
-              <span className="font-medium">
+              <span className="font-medium text-slate-50">
                 €{Math.round(arrGap).toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between pt-2 border-t border-slate-800 mt-2">
               <span className="text-slate-300">Current new ARR / month</span>
-              <span className="font-medium">
+              <span className="font-medium text-slate-50">
                 €{Math.round(actualNewArrPerMonth).toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-300">Required new ARR / month</span>
-              <span className="font-medium">
+              <span className="font-medium text-slate-50">
                 €{Math.round(requiredNewArrPerMonth).toLocaleString()}
               </span>
             </div>
@@ -473,30 +479,31 @@ export default function MainDashboard() {
         </div>
 
         {/* Bottleneck card */}
-        <div className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 space-y-2">
-          <h3 className="text-sm font-semibold text-slate-100">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+          <h3 className="text-sm font-semibold text-slate-50">
             Funnel bottleneck versus benchmarks
           </h3>
           {bottleneckLabel ? (
             <>
               <p className="text-xs text-slate-400">
-                This is the weakest conversion step compared to your own
-                targets.
+                This is the weakest conversion step compared to your own targets.
               </p>
               <div className="mt-2 text-sm space-y-1">
                 <div>
                   <span className="text-slate-300">Stage</span>
-                  <div className="font-medium">{bottleneckLabel}</div>
+                  <div className="font-medium text-slate-50">
+                    {bottleneckLabel}
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-300">Actual rate</span>
-                  <span className="font-medium">
+                  <span className="font-medium text-slate-50">
                     {bottleneckActual.toFixed(1)}%
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-300">Target rate</span>
-                  <span className="font-medium">
+                  <span className="font-medium text-slate-50">
                     {bottleneckTarget.toFixed(1)}%
                   </span>
                 </div>
@@ -505,14 +512,14 @@ export default function MainDashboard() {
           ) : (
             <p className="text-xs text-slate-400">
               All stages are close to or above benchmark. In this case, the main
-              lever is usually top of funnel volume and NRR.
+              lever is usually top-of-funnel volume and NRR.
             </p>
           )}
         </div>
 
         {/* Lead requirements card */}
-        <div className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 space-y-2">
-          <h3 className="text-sm font-semibold text-slate-100">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+          <h3 className="text-sm font-semibold text-slate-50">
             Lead volume required to hit target
           </h3>
           <p className="text-xs text-slate-400">
@@ -523,13 +530,13 @@ export default function MainDashboard() {
             <div className="mt-2 text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="text-slate-300">Required leads (period)</span>
-                <span className="font-medium">
+                <span className="font-medium text-slate-50">
                   {Math.round(requiredLeadsTotal).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-300">Required leads / week</span>
-                <span className="font-medium">
+                <span className="font-medium text-slate-50">
                   {requiredLeadsPerWeek.toFixed(1)}
                 </span>
               </div>
@@ -537,7 +544,7 @@ export default function MainDashboard() {
                 <span className="text-slate-300">
                   Current leads / week (this timeframe)
                 </span>
-                <span className="font-medium">
+                <span className="font-medium text-slate-50">
                   {currentLeadsPerWeek.toFixed(1)}
                 </span>
               </div>
@@ -553,8 +560,8 @@ export default function MainDashboard() {
       </section>
 
       {/* Funnel stage comparison list */}
-      <section className="bg-slate-900/80 border border-slate-700 rounded-xl p-4">
-        <h3 className="text-sm font-semibold text-slate-100 mb-2">
+      <section className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+        <h3 className="text-sm font-semibold text-slate-50 mb-2">
           Funnel performance versus targets
         </h3>
         <p className="text-xs text-slate-400 mb-3">
@@ -564,20 +571,20 @@ export default function MainDashboard() {
           {stagesWithDiff.map((stage) => (
             <div
               key={stage.label}
-              className="border border-slate-700 rounded-lg p-2 bg-slate-950/60"
+              className="border border-slate-800 rounded-lg p-2 bg-slate-950/70"
             >
-              <div className="font-semibold text-slate-100">
+              <div className="font-semibold text-slate-50">
                 {stage.label}
               </div>
               <div className="flex justify-between mt-1">
                 <span className="text-slate-400">Actual</span>
-                <span className="font-medium">
+                <span className="font-medium text-slate-50">
                   {stage.actual.toFixed(1)}%
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Target</span>
-                <span className="font-medium">
+                <span className="font-medium text-slate-50">
                   {stage.target.toFixed(1)}%
                 </span>
               </div>
@@ -624,14 +631,14 @@ function FunnelBox({
   rateLabel,
 }: FunnelBoxProps) {
   return (
-    <div className="border border-slate-700 rounded-lg p-3 bg-slate-950/60">
-      <div className="text-xs font-semibold text-slate-100 mb-1">{title}</div>
+    <div className="border border-slate-800 rounded-lg p-3 bg-slate-950/70">
+      <div className="text-xs font-semibold text-slate-50 mb-1">{title}</div>
       <input
         type="number"
         inputMode="decimal"
         value={Number.isNaN(count) ? "" : count}
         onChange={(e) => onChange(Number(e.target.value) || 0)}
-        className="w-full bg-slate-900 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+        className="w-full bg-slate-900 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-50 focus:outline-none focus:ring-1 focus:ring-cyan-500"
       />
       {showRates &&
         rateLabel &&
@@ -641,13 +648,13 @@ function FunnelBox({
             <div className="text-slate-400">{rateLabel}</div>
             <div className="flex justify-between">
               <span className="text-slate-500">Actual</span>
-              <span className="font-medium text-slate-100">
+              <span className="font-medium text-slate-50">
                 {actualRate.toFixed(1)}%
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Target</span>
-              <span className="font-medium text-slate-100">
+              <span className="font-medium text-slate-50">
                 {targetRate.toFixed(1)}%
               </span>
             </div>
@@ -683,9 +690,9 @@ function StatCard({ label, value, helper, tone = "neutral" }: StatCardProps) {
       : "";
 
   return (
-    <div className="bg-slate-900/90 border border-slate-700 rounded-xl p-3 flex flex-col gap-1">
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-xs text-slate-400">{label}</div>
+        <div className="text-xs text-slate-300">{label}</div>
         {badgeText && (
           <span
             className={`text-[10px] px-2 py-0.5 rounded-full border ${badgeColor}`}
@@ -695,7 +702,7 @@ function StatCard({ label, value, helper, tone = "neutral" }: StatCardProps) {
         )}
       </div>
       <div className={`text-lg font-semibold ${valueColor}`}>{value}</div>
-      {helper && <div className="text-[11px] text-slate-500">{helper}</div>}
+      {helper && <div className="text-[11px] text-slate-400">{helper}</div>}
     </div>
   );
 }
@@ -726,7 +733,6 @@ function computeArrRunRate(
     requiredNewArrTotal = Math.max(targetArr - forecastArrEnd, 0);
   }
 
-  // add expected new ARR at current run rate over the target timeframe
   forecastArrEnd += actualNewArrPerWeek * timeframeWeeks;
 
   const arrGap = Math.max(targetArr - forecastArrEnd, 0);
@@ -812,7 +818,6 @@ function computeLeadRequirements(
   actualRates: ActualRates,
   requiredNewArrTotal: number
 ) {
-  // Benchmark chain
   const chainBenchmark =
     (benchmarks.marketing.leadsToMql / 100 || 0) *
     (benchmarks.marketing.mqlToSql / 100 || 0) *
@@ -822,7 +827,6 @@ function computeLeadRequirements(
 
   const winsPerLeadBenchmark = chainBenchmark;
 
-  // Actual chain from derived rates
   const chainActual =
     (actualRates.leadsToMql / 100 || 0) *
     (actualRates.mqlToSql / 100 || 0) *
@@ -832,7 +836,6 @@ function computeLeadRequirements(
 
   const estimatedWinsPerLeadActual = chainActual;
 
-  // Estimate average deal size from actuals if possible
   let avgDealSizeActual = 0;
   const estimatedWinsThisPeriod =
     actuals.funnel.leads * estimatedWinsPerLeadActual;
