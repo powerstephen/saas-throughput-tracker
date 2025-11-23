@@ -78,6 +78,7 @@ type Scenario = {
   extraArr: number;
   newArrScenario: number;
   gapImprovement: number;
+  extraMonthlyArr?: number;
 };
 
 export default function MainDashboard() {
@@ -166,11 +167,6 @@ export default function MainDashboard() {
       ? ((avgDealSizeActual - acvTarget) / acvTarget) * 100
       : 0;
 
-  const runRateRatio =
-    requiredNewArrPerMonth > 0
-      ? actualNewArrPerMonth / requiredNewArrPerMonth
-      : 0;
-
   const baseArr = actuals.revenue.newArrThisPeriod;
   const targetArr = benchmarks.revenue.targetArr;
 
@@ -189,14 +185,15 @@ export default function MainDashboard() {
   const selectedScenario = scenarios.find((s) => s.id === selectedScenarioId);
   const scenarioExtraArr = selectedScenario?.extraArr ?? 0;
 
-  // ---------- Scenario-adjusted metrics for hero + overview ----------
-
   const forecastArrEndDisplayed = forecastArrEnd + scenarioExtraArr;
   const arrGapDisplayed = Math.max(targetArr - forecastArrEndDisplayed, 0);
 
   const timeframeMonths = (benchmarks.revenue.timeframeWeeks || 1) / 4.33;
   const extraMonthlyFromScenario =
-    timeframeMonths > 0 ? scenarioExtraArr / timeframeMonths : 0;
+    timeframeMonths > 0 && scenarioExtraArr > 0
+      ? scenarioExtraArr / timeframeMonths
+      : 0;
+
   const actualNewArrPerMonthDisplayed =
     actualNewArrPerMonth + extraMonthlyFromScenario;
 
@@ -346,9 +343,8 @@ export default function MainDashboard() {
           </div>
         </div>
 
-        {/* New ARR + ACV + CS toggle row – 3 equal boxes */}
+        {/* New ARR + ACV + CS toggle */}
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {/* New ARR */}
           <label className="text-xs text-slate-200 flex flex-col">
             <span className="mb-1">New ARR in this timeframe (€)</span>
             <input
@@ -370,7 +366,6 @@ export default function MainDashboard() {
             </span>
           </label>
 
-          {/* ACV */}
           <label className="text-xs text-slate-200 flex flex-col">
             <span className="mb-1">Average contract value (ACV)</span>
             <input
@@ -380,7 +375,7 @@ export default function MainDashboard() {
               value={
                 avgDealSizeActual > 0
                   ? `€${Math.round(avgDealSizeActual).toLocaleString()}`
-                  : "Enter wins and ARR to calculate ACV"
+                  : "Enter ARR and wins to calculate ACV"
               }
             />
             <span className="text-[10px] text-slate-400 mt-2">
@@ -388,7 +383,6 @@ export default function MainDashboard() {
             </span>
           </label>
 
-          {/* CS toggle as equal-sized box */}
           <div className="text-xs text-slate-200 flex flex-col">
             <span className="mb-1">Include Customer Success (NRR) in ARR path</span>
             <button
@@ -410,7 +404,7 @@ export default function MainDashboard() {
         </div>
       </section>
 
-      {/* Key metrics strip – hero metrics */}
+      {/* Hero metrics */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           label="ACV vs target"
@@ -441,7 +435,7 @@ export default function MainDashboard() {
           value={`€${Math.round(forecastArrEndDisplayed).toLocaleString()}`}
           helper={
             selectedScenario
-              ? "Includes impact of selected scenario."
+              ? "Includes impact of the selected scenario."
               : "Based on current run rate and NRR setting."
           }
           tone={arrGapDisplayed <= 0 ? "good" : "bad"}
@@ -463,7 +457,7 @@ export default function MainDashboard() {
           value={`€${Math.round(actualNewArrPerMonthDisplayed).toLocaleString()}`}
           helper={
             selectedScenario
-              ? "Includes incremental ARR from selected scenario."
+              ? "Includes incremental ARR from the selected scenario."
               : `From new ARR in ${timeframeLabel}.`
           }
           tone={
@@ -482,15 +476,15 @@ export default function MainDashboard() {
         />
       </section>
 
-      {/* Priority scenarios moved directly under hero metrics */}
+      {/* Priority scenarios directly under hero metrics */}
       <section className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
         <h3 className="text-sm font-semibold text-slate-50">
           Priority scenarios to improve outcome
         </h3>
         <p className="text-xs text-slate-400">
-          These are the top levers that would move ARR in this timeframe the most, based
-          on your current inputs and benchmarks. Selecting a scenario updates the ARR
-          metrics above.
+          These are the main levers that would move ARR for this timeframe the most,
+          based on your current inputs and benchmarks. Selecting a scenario updates
+          the ARR metrics above.
         </p>
 
         {scenarios.length === 0 ? (
@@ -525,6 +519,14 @@ export default function MainDashboard() {
                         : "—"}
                     </span>
                   </div>
+                  {typeof s.extraMonthlyArr === "number" && s.extraMonthlyArr > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Extra ARR / month</span>
+                      <span className="font-semibold text-emerald-300">
+                        €{Math.round(s.extraMonthlyArr).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-slate-400">
                       Gap reduction (approx)
@@ -823,34 +825,41 @@ function StatCard({ label, value, helper, tone = "neutral" }: StatCardProps) {
       ? "text-rose-400"
       : "text-slate-50";
 
-  const badgeText =
+  const statusText =
     tone === "good" ? "On track" : tone === "bad" ? "Needs attention" : "";
 
-  const badgeColor =
+  const statusClasses =
     tone === "good"
-      ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40"
+      ? "bg-emerald-500/15 text-emerald-200 border-emerald-500/40"
       : tone === "bad"
-      ? "bg-rose-500/15 text-rose-300 border-rose-500/40"
-      : "";
+      ? "bg-rose-500/15 text-rose-200 border-rose-500/40"
+      : "bg-slate-800/60 text-slate-300 border-slate-700/60";
 
   return (
     <div className="bg-slate-900/95 border border-slate-700 rounded-xl px-3 py-3 flex flex-col gap-1 shadow-sm">
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-[11px] text-slate-300">{label}</div>
-        {badgeText && (
-          <span
-            className={`text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap ${badgeColor}`}
-          >
-            {badgeText}
-          </span>
-        )}
-      </div>
-      <div className={`text-xl font-semibold tracking-tight text-right ${valueColor}`}>
+      {/* Heading */}
+      <div className="text-[11px] text-slate-300">{label}</div>
+
+      {/* Number */}
+      <div className={`text-xl font-semibold tracking-tight ${valueColor}`}>
         {value}
       </div>
+
+      {/* Explainer */}
       {helper && (
-        <div className="text-[10px] text-slate-400 leading-snug text-right">
+        <div className="text-[10px] text-slate-400 leading-snug">
           {helper}
+        </div>
+      )}
+
+      {/* Status pill at bottom */}
+      {statusText && (
+        <div className="mt-2">
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] ${statusClasses}`}
+          >
+            {statusText}
+          </span>
         </div>
       )}
     </div>
@@ -872,7 +881,6 @@ function computeArrRunRate(
   const actualNewArrPerMonth = actualNewArrPerWeek * 4.33;
 
   let requiredNewArrTotal = Math.max(targetArr - currentArr, 0);
-
   let forecastArrEnd = currentArr;
 
   if (includeCs && benchmarks.cs.nrrTarget > 0) {
@@ -884,7 +892,6 @@ function computeArrRunRate(
   }
 
   forecastArrEnd += actualNewArrPerWeek * timeframeWeeks;
-
   const arrGap = Math.max(targetArr - forecastArrEnd, 0);
 
   const requiredNewArrPerWeek = safeDiv(requiredNewArrTotal, timeframeWeeks || 1);
@@ -1063,26 +1070,46 @@ function computeScenarios(params: {
     return [];
   }
 
+  const timeframeMonths = (benchmarks.revenue.timeframeWeeks || 1) / 4.33;
   const scenarios: Scenario[] = [];
 
   // Scenario 1: Fix the single worst bottleneck back to benchmark
   if (worstStageKey) {
     const scenarioRates: ActualRates = { ...actualRates };
+    let stageLabel = "";
+    let actRate = 0;
+    let tgtRate = 0;
+
     switch (worstStageKey) {
       case "leadsToMql":
         scenarioRates.leadsToMql = benchmarks.marketing.leadsToMql;
+        stageLabel = "Leads → MQL";
+        actRate = actualRates.leadsToMql;
+        tgtRate = benchmarks.marketing.leadsToMql;
         break;
       case "mqlToSql":
         scenarioRates.mqlToSql = benchmarks.marketing.mqlToSql;
+        stageLabel = "MQL → SQL";
+        actRate = actualRates.mqlToSql;
+        tgtRate = benchmarks.marketing.mqlToSql;
         break;
       case "sqlToOpp":
         scenarioRates.sqlToOpp = benchmarks.sales.sqlToOpp;
+        stageLabel = "SQL → Opp";
+        actRate = actualRates.sqlToOpp;
+        tgtRate = benchmarks.sales.sqlToOpp;
         break;
       case "oppToProp":
         scenarioRates.oppToProp = benchmarks.sales.oppToProp;
+        stageLabel = "Opp → Proposal";
+        actRate = actualRates.oppToProp;
+        tgtRate = benchmarks.sales.oppToProp;
         break;
       case "propToWin":
         scenarioRates.propToWin = benchmarks.sales.propToWin;
+        stageLabel = "Proposal → Win";
+        actRate = actualRates.propToWin;
+        tgtRate = benchmarks.sales.propToWin;
         break;
     }
 
@@ -1098,16 +1125,25 @@ function computeScenarios(params: {
     const newArrScenario = winsScenario * acv;
     const extraArr = newArrScenario - baseArr;
     const gapImprovement = Math.max(Math.min(extraArr, arrGap), 0);
+    const extraMonthlyArr =
+      timeframeMonths > 0 ? extraArr / timeframeMonths : undefined;
 
     if (extraArr > 0.01) {
       scenarios.push({
         id: "fix-bottleneck",
         title: "Fix weakest conversion back to benchmark",
         description:
-          "Bring the single weakest funnel stage back to its target conversion rate for this period.",
+          stageLabel && actRate && tgtRate
+            ? `Improve ${stageLabel} from ${actRate.toFixed(
+                1
+              )}% to ${tgtRate.toFixed(
+                1
+              )}% with the same lead volume. This lifts wins and ARR without extra spend at the top of the funnel.`
+            : "Bring the weakest funnel stage back to its target conversion rate.",
         extraArr,
         newArrScenario,
         gapImprovement,
+        extraMonthlyArr,
       });
     }
   }
@@ -1118,36 +1154,65 @@ function computeScenarios(params: {
     const newArrScenario2 = winsScenario2 * acv;
     const extraArr2 = newArrScenario2 - baseArr;
     const gapImprovement2 = Math.max(Math.min(extraArr2, arrGap), 0);
+    const extraMonthlyArr2 =
+      timeframeMonths > 0 ? extraArr2 / timeframeMonths : undefined;
 
     if (extraArr2 > 0.01) {
       scenarios.push({
         id: "all-to-benchmark",
-        title: "Bring all stages up to benchmark",
+        title: "Align all funnel stages to benchmark",
         description:
-          "Lift each conversion step back to its target rate while keeping lead volume constant.",
+          "Lift each conversion step back to its target rate while keeping lead volume constant. This compounds gains across the funnel.",
         extraArr: extraArr2,
         newArrScenario: newArrScenario2,
         gapImprovement: gapImprovement2,
+        extraMonthlyArr: extraMonthlyArr2,
       });
     }
   }
 
-  // Scenario 3: Hit required lead volume at benchmark rates
-  if (requiredLeadsTotal > 0 && winsPerLeadBenchmark > 0) {
-    const winsScenario3 = requiredLeadsTotal * winsPerLeadBenchmark;
-    const newArrScenario3 = winsScenario3 * acv;
-    const extraArr3 = newArrScenario3 - baseArr;
-    const gapImprovement3 = Math.max(Math.min(extraArr3, arrGap), 0);
+  // Scenario 3: Lead volume increase (10%, 20%, 30%)
+  if (winsPerLeadBenchmark > 0 && acv > 0 && actuals.funnel.leads > 0) {
+    const baseLeads = actuals.funnel.leads;
 
-    if (extraArr3 > 0.01) {
+    const calcArrForLeadFactor = (factor: number) => {
+      const leads = baseLeads * factor;
+      const wins = leads * winsPerLeadBenchmark;
+      return wins * acv;
+    };
+
+    const arr10 = calcArrForLeadFactor(1.1);
+    const arr20 = calcArrForLeadFactor(1.2);
+    const arr30 = calcArrForLeadFactor(1.3);
+
+    const extraArr10 = arr10 - baseArr;
+    const extraArr20 = arr20 - baseArr;
+    const extraArr30 = arr30 - baseArr;
+
+    const chosenArrScenario = arr20;
+    const extraArrChosen = extraArr20;
+    const gapImprovementChosen = Math.max(
+      Math.min(extraArrChosen, arrGap),
+      0
+    );
+    const extraMonthlyArrChosen =
+      timeframeMonths > 0 ? extraArrChosen / timeframeMonths : undefined;
+
+    if (extraArrChosen > 0.01) {
       scenarios.push({
-        id: "hit-required-leads",
-        title: "Hit required lead volume",
-        description:
-          "Scale lead volume to the level required to reach ARR target at benchmark conversion rates.",
-        extraArr: extraArr3,
-        newArrScenario: newArrScenario3,
-        gapImprovement: gapImprovement3,
+        id: "lead-volume",
+        title: "Increase lead volume by 10–30%",
+        description: `At benchmark conversion rates and current ACV, +10% leads ≈ €${Math.round(
+          extraArr10
+        ).toLocaleString()}, +20% ≈ €${Math.round(
+          extraArr20
+        ).toLocaleString()}, +30% ≈ €${Math.round(
+          extraArr30
+        ).toLocaleString()} additional ARR in this timeframe.`,
+        extraArr: extraArrChosen,
+        newArrScenario: chosenArrScenario,
+        gapImprovement: gapImprovementChosen,
+        extraMonthlyArr: extraMonthlyArrChosen,
       });
     }
   }
