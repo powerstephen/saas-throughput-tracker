@@ -1,123 +1,62 @@
-// app/page.tsx
 "use client";
 
-import React, { useState } from "react";
-import BenchmarksPanel from "@/components/BenchmarksPanel";
+import { useState } from "react";
 import MainDashboard from "@/components/MainDashboard";
-
-// ---- types (local to this file) ----
-
-export interface Benchmarks {
-  marketing: {
-    leadsPerPeriod: number;
-    leadsToMql: number;
-    mqlToSql: number;
-  };
-  sales: {
-    sqlToOpp: number;
-    oppToProposal: number;
-    proposalToWin: number;
-  };
-  customerSuccess: {
-    monthlyChurn: number;
-    expansion: number;
-    nrr: number;
-  };
-  revenue: {
-    currentArr: number;
-    targetArr: number;
-    timeframeWeeks: number;
-  };
-}
-
-export interface Actuals {
-  timeframeDays: number; // 30 / 60 / 90
-  timeframeLabel: string; // "Last 30 days" etc.
-  leads: number;
-  mqls: number;
-  sqls: number;
-  opps: number;
-  proposals: number;
-  wins: number;
-  newArrInPeriod: number;
-  includeCustomerSuccess: boolean;
-}
-
-// ---- default values ----
+import { BenchmarksPanel, type Benchmarks } from "@/components/BenchmarksPanel";
 
 const defaultBenchmarks: Benchmarks = {
   marketing: {
-    leadsPerPeriod: 2000,
-    leadsToMql: 25,
-    mqlToSql: 40,
+    leadToMql: 0.25, // 25%
+    mqlToSql: 0.4,   // 40%
   },
   sales: {
-    sqlToOpp: 30,
-    oppToProposal: 50,
-    proposalToWin: 25,
+    sqlToOpp: 0.3,   // 30%
+    oppToProp: 0.5,  // 50%
+    propToWin: 0.25, // 25%
   },
-  customerSuccess: {
-    monthlyChurn: 1,
-    expansion: 20,
-    nrr: 120,
+  cs: {
+    monthlyChurnTarget: 0.01, // 1% churn / month
+    expansionTarget: 0.15,    // 15% annual expansion
+    nrrTarget: 1.20,          // 120% NRR
   },
   revenue: {
-    currentArr: 8_500_000, // EdgeTier-style baseline
-    targetArr: 10_000_000, // Target ARR
-    timeframeWeeks: 52, // horizon to hit target
+    currentArr: 8_500_000, // €8.5m current ARR
+    arrTarget: 10_000_000, // €10m target ARR
+    timeframeWeeks: 52,    // ~12 months
+    blendedCacTarget: 25_000,
   },
 };
 
-const defaultActuals: Actuals = {
-  timeframeDays: 90,
-  timeframeLabel: "Last 90 days",
-  leads: 2000,
-  mqls: 500,
-  sqls: 200,
-  opps: 80,
-  proposals: 40,
-  wins: 10,
-  newArrInPeriod: 500_000,
-  includeCustomerSuccess: true,
-};
-
-// ---- page component ----
-
-export default function HomePage() {
+export default function Page() {
   const [benchmarks, setBenchmarks] = useState<Benchmarks>(defaultBenchmarks);
-  const [actuals, setActuals] = useState<Actuals>(defaultActuals);
-
-  const handleActualsChange = (partial: Partial<Actuals>) => {
-    setActuals((prev) => ({ ...prev, ...partial }));
-  };
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-50">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 md:px-8 md:py-10">
-        <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">
-              SaaS Revenue Engine Dashboard
-            </h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Throughput, ARR run rate, full-funnel performance and scenario-based
-              growth paths.
-            </p>
-          </div>
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8">
+        {/* Header */}
+        <header className="space-y-2">
+          <h1 className="text-xl font-semibold tracking-tight text-slate-50">
+            SaaS Throughput & ARR Path Calculator
+          </h1>
+          <p className="max-w-2xl text-xs text-slate-400">
+            Set realistic benchmarks, plug in recent funnel performance, and see your
+            ARR run rate, gap to target, and how much impact you get by fixing
+            bottlenecks or increasing lead volume.
+          </p>
         </header>
 
-        {/* Benchmarks on top (hideable inside the component) */}
-        <BenchmarksPanel
-          benchmarks={benchmarks}
-          onChange={setBenchmarks}
-        />
+        {/* Benchmarks config */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4">
+          <BenchmarksPanel
+            benchmarks={benchmarks}
+            onChange={setBenchmarks}
+          />
+        </section>
 
-        {/* Main dashboard uses benchmarks + period actuals */}
-        <MainDashboard
-          benchmarks={benchmarks}
-          actuals={actuals}
-          onActualsChange={handleActualsChange}
-        />
+        {/* Main dashboard */}
+        <section>
+          <MainDashboard benchmarks={benchmarks} />
+        </section>
       </div>
     </main>
   );
