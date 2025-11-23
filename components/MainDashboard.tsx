@@ -156,14 +156,20 @@ export default function MainDashboard() {
       ? ((avgDealSizeActual - acvTarget) / acvTarget) * 100
       : 0;
 
+  // run-rate comparison for colour
+  const runRateRatio =
+    requiredNewArrPerMonth > 0
+      ? actualNewArrPerMonth / requiredNewArrPerMonth
+      : 0;
+
   return (
     <div className="space-y-6">
       {/* Heading */}
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-slate-50">
+        <h1 className="text-2xl font-semibold text-slate-900">
           SaaS Throughput and ARR Path
         </h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-slate-600">
           Input a recent period of funnel performance, compare it to your own benchmarks,
           and see ACV, ARR run rate, and lead volume needed to hit target.
         </p>
@@ -196,7 +202,7 @@ export default function MainDashboard() {
             <label className="text-xs text-slate-300 flex flex-col">
               Timeframe
               <select
-                className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs"
+                className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-100"
                 value={timeframeDays}
                 onChange={(e) => {
                   const days = Number(e.target.value) as 30 | 60 | 90;
@@ -319,12 +325,12 @@ export default function MainDashboard() {
         </div>
 
         {/* New ARR + ACV row */}
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="text-xs text-slate-300 flex flex-col">
             New ARR in this timeframe (€)
             <input
               type="number"
-              className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs"
+              className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
               value={actuals.revenue.newArrThisPeriod}
               onChange={(e) =>
                 setActuals((prev) => ({
@@ -341,17 +347,22 @@ export default function MainDashboard() {
             </span>
           </label>
 
-          <div className="text-xs text-slate-300 flex flex-col">
-            <span>Average contract value (ACV)</span>
-            <div className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-100">
-              {avgDealSizeActual > 0
-                ? `€${Math.round(avgDealSizeActual).toLocaleString()}`
-                : "Enter wins and ARR to calculate ACV"}
-            </div>
+          <label className="text-xs text-slate-300 flex flex-col">
+            Average contract value (ACV)
+            <input
+              type="text"
+              readOnly
+              className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-100"
+              value={
+                avgDealSizeActual > 0
+                  ? `€${Math.round(avgDealSizeActual).toLocaleString()}`
+                  : "Enter wins and ARR to calculate ACV"
+              }
+            />
             <span className="text-[10px] text-slate-500 mt-1">
               Calculated as New ARR / Wins in this timeframe.
             </span>
-          </div>
+          </label>
         </div>
       </section>
 
@@ -371,26 +382,49 @@ export default function MainDashboard() {
                 }${acvDiffPct.toFixed(1)}%`
               : "Enter ARR and wins to see ACV vs target."
           }
+          tone={
+            avgDealSizeActual > 0 && acvTarget > 0
+              ? acvDiffPct >= 0
+                ? "good"
+                : acvDiffPct > -5
+                ? "neutral"
+                : "bad"
+              : "neutral"
+          }
         />
         <StatCard
           label="Forecast ARR at end of target period"
           value={`€${Math.round(forecastArrEnd).toLocaleString()}`}
           helper="Based on current run rate and NRR setting."
+          tone={arrGap <= 0 ? "good" : "bad"}
         />
         <StatCard
           label="Gap to target ARR"
           value={`€${Math.round(arrGap).toLocaleString()}`}
-          helper={arrGap > 0 ? "Additional ARR needed to hit target." : "On track or above target at current run rate."}
+          helper={
+            arrGap > 0
+              ? "Additional ARR needed to hit target."
+              : "On track or above target at current run rate."
+          }
+          tone={arrGap > 0 ? "bad" : "good"}
         />
         <StatCard
           label="Current run rate (monthly)"
           value={`€${Math.round(actualNewArrPerMonth).toLocaleString()}`}
           helper={`From new ARR in ${timeframeLabel}.`}
+          tone={
+            requiredNewArrPerMonth > 0
+              ? runRateRatio >= 1
+                ? "good"
+                : "bad"
+              : "neutral"
+          }
         />
         <StatCard
           label="Required run rate (monthly)"
           value={`€${Math.round(requiredNewArrPerMonth).toLocaleString()}`}
           helper="Average new ARR per month needed to hit target."
+          tone="neutral"
         />
       </section>
 
@@ -627,13 +661,40 @@ type StatCardProps = {
   label: string;
   value: string;
   helper?: string;
+  tone?: "good" | "bad" | "neutral";
 };
 
-function StatCard({ label, value, helper }: StatCardProps) {
+function StatCard({ label, value, helper, tone = "neutral" }: StatCardProps) {
+  const valueColor =
+    tone === "good"
+      ? "text-emerald-400"
+      : tone === "bad"
+      ? "text-rose-400"
+      : "text-slate-50";
+
+  const badgeText =
+    tone === "good" ? "On track" : tone === "bad" ? "Needs attention" : "";
+
+  const badgeColor =
+    tone === "good"
+      ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40"
+      : tone === "bad"
+      ? "bg-rose-500/15 text-rose-300 border-rose-500/40"
+      : "";
+
   return (
     <div className="bg-slate-900/90 border border-slate-700 rounded-xl p-3 flex flex-col gap-1">
-      <div className="text-xs text-slate-400">{label}</div>
-      <div className="text-lg font-semibold text-slate-50">{value}</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs text-slate-400">{label}</div>
+        {badgeText && (
+          <span
+            className={`text-[10px] px-2 py-0.5 rounded-full border ${badgeColor}`}
+          >
+            {badgeText}
+          </span>
+        )}
+      </div>
+      <div className={`text-lg font-semibold ${valueColor}`}>{value}</div>
       {helper && <div className="text-[11px] text-slate-500">{helper}</div>}
     </div>
   );
@@ -662,10 +723,7 @@ function computeArrRunRate(
     const yearFraction = timeframeWeeks / 52;
     const baseGrowthFromNrr = currentArr * (nrrFactor - 1) * yearFraction;
     forecastArrEnd += baseGrowthFromNrr;
-    requiredNewArrTotal = Math.max(
-      targetArr - forecastArrEnd,
-      0
-    );
+    requiredNewArrTotal = Math.max(targetArr - forecastArrEnd, 0);
   }
 
   // add expected new ARR at current run rate over the target timeframe
