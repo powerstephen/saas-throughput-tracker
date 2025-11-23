@@ -38,8 +38,7 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   })}`;
 
-const formatPercent = (value: number) =>
-  `${(value * 100).toFixed(1)}%`;
+const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
 function getMonthsFromTimeframe(timeframe: Timeframe): number {
   const days = parseInt(timeframe, 10);
@@ -50,9 +49,7 @@ function clampNumber(num: number) {
   return Number.isFinite(num) ? num : 0;
 }
 
-const MainDashboard: React.FC<MainDashboardProps> = ({
-  benchmarks,
-}) => {
+const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
   const [actuals, setActuals] = useState<Actuals>({
     timeframe: "90",
     leads: 1300,
@@ -67,8 +64,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     expansionRate: 0.02,
   });
 
-  const [activeScenario, setActiveScenario] =
-    useState<ScenarioId>(null);
+  const [activeScenario, setActiveScenario] = useState<ScenarioId>(null);
   const [scenarioMetrics, setScenarioMetrics] =
     useState<ScenarioMetrics | null>(null);
 
@@ -87,15 +83,12 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
 
   const baseMetrics = useMemo(() => {
     const currentRunRate =
-      monthsInPeriod > 0
-        ? actuals.newArr / monthsInPeriod
-        : 0;
+      monthsInPeriod > 0 ? actuals.newArr / monthsInPeriod : 0;
 
     const weeksInTimeframe = benchmarks.timeframeWeeks;
     const monthsInTargetPeriod = weeksInTimeframe / 4.345;
 
-    const forecastArr =
-      currentRunRate * monthsInTargetPeriod;
+    const forecastArr = currentRunRate * monthsInTargetPeriod;
 
     const gapToTarget = forecastArr - benchmarks.targetArr;
 
@@ -115,20 +108,12 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
   const selectedMetrics = scenarioMetrics || baseMetrics;
 
   const conversionRates = useMemo(() => {
-    const leadToMql =
-      actuals.leads > 0 ? actuals.mqls / actuals.leads : 0;
-    const mqlToSql =
-      actuals.mqls > 0 ? actuals.sqls / actuals.mqls : 0;
-    const sqlToOpp =
-      actuals.sqls > 0 ? actuals.opps / actuals.sqls : 0;
-    const oppToProposal =
-      actuals.opps > 0
-        ? actuals.proposals / actuals.opps
-        : 0;
+    const leadToMql = actuals.leads > 0 ? actuals.mqls / actuals.leads : 0;
+    const mqlToSql = actuals.mqls > 0 ? actuals.sqls / actuals.mqls : 0;
+    const sqlToOpp = actuals.sqls > 0 ? actuals.opps / actuals.sqls : 0;
+    const oppToProposal = actuals.opps > 0 ? actuals.proposals / actuals.opps : 0;
     const proposalToWin =
-      actuals.proposals > 0
-        ? actuals.wins / actuals.proposals
-        : 0;
+      actuals.proposals > 0 ? actuals.wins / actuals.proposals : 0;
 
     return {
       leadToMql,
@@ -172,9 +157,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       gap: s.target - s.actual,
     }));
 
-    const negativeOnly = withGap.filter(
-      (s) => s.gap > 0.001
-    );
+    const negativeOnly = withGap.filter((s) => s.gap > 0.001);
     if (!negativeOnly.length) return null;
 
     negativeOnly.sort((a, b) => b.gap - a.gap);
@@ -196,30 +179,19 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       let wins = actuals.wins;
 
       if (weakestStage.id === "mqlToSql") {
-        const newSqls = Math.round(
-          mqls * benchmarks.mqlToSql
-        );
+        const newSqls = Math.round(mqls * benchmarks.mqlToSql);
         const newOpps = conversionRates.sqlToOpp * newSqls;
-        const newProposals =
-          conversionRates.oppToProposal * newOpps;
-        const newWins =
-          conversionRates.proposalToWin * newProposals;
+        const newProposals = conversionRates.oppToProposal * newOpps;
+        const newWins = conversionRates.proposalToWin * newProposals;
         wins = newWins;
       } else if (weakestStage.id === "sqlToOpp") {
-        const newOpps = Math.round(
-          sqls * benchmarks.sqlToOpp
-        );
-        const newProposals =
-          conversionRates.oppToProposal * newOpps;
-        const newWins =
-          conversionRates.proposalToWin * newProposals;
+        const newOpps = Math.round(sqls * benchmarks.sqlToOpp);
+        const newProposals = conversionRates.oppToProposal * newOpps;
+        const newWins = conversionRates.proposalToWin * newProposals;
         wins = newWins;
       } else if (weakestStage.id === "oppToProposal") {
-        const newProposals = Math.round(
-          opps * benchmarks.oppToProposal
-        );
-        const newWins =
-          conversionRates.proposalToWin * newProposals;
+        const newProposals = Math.round(opps * benchmarks.oppToProposal);
+        const newWins = conversionRates.proposalToWin * newProposals;
         wins = newWins;
       } else if (weakestStage.id === "proposalToWin") {
         const newWins = Math.round(
@@ -230,13 +202,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
 
       const newArr = wins * baseAcv;
       const currentRunRate =
-        monthsInPeriod > 0
-          ? newArr / monthsInPeriod
-          : 0;
-      const forecastArr =
-        currentRunRate * monthsInTargetPeriod;
-      const gapToTarget =
-        forecastArr - benchmarks.targetArr;
+        monthsInPeriod > 0 ? newArr / monthsInPeriod : 0;
+      const forecastArr = currentRunRate * monthsInTargetPeriod;
+      const gapToTarget = forecastArr - benchmarks.targetArr;
 
       setActiveScenario("weakest-stage");
       setScenarioMetrics({
@@ -251,16 +219,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       const improvedAcv = baseAcv * 1.1;
       const newArr = actuals.wins * improvedAcv;
       const currentRunRate =
-        monthsInPeriod > 0
-          ? newArr / monthsInPeriod
-          : 0;
+        monthsInPeriod > 0 ? newArr / monthsInPeriod : 0;
       const weeksInTimeframe = benchmarks.timeframeWeeks;
-      const monthsInTargetPeriod =
-        weeksInTimeframe / 4.345;
-      const forecastArr =
-        currentRunRate * monthsInTargetPeriod;
-      const gapToTarget =
-        forecastArr - benchmarks.targetArr;
+      const monthsInTargetPeriod = weeksInTimeframe / 4.345;
+      const forecastArr = currentRunRate * monthsInTargetPeriod;
+      const gapToTarget = forecastArr - benchmarks.targetArr;
 
       setActiveScenario("lift-acv");
       setScenarioMetrics({
@@ -273,26 +236,17 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
 
     if (scenario === "boost-leads") {
       const boostedLeads = actuals.leads * 1.2;
-      const mqls =
-        boostedLeads * conversionRates.leadToMql;
-      const sqls =
-        mqls * conversionRates.mqlToSql;
-      const opps =
-        sqls * conversionRates.sqlToOpp;
-      const proposals =
-        opps * conversionRates.oppToProposal;
-      const wins =
-        proposals * conversionRates.proposalToWin;
+      const mqls = boostedLeads * conversionRates.leadToMql;
+      const sqls = mqls * conversionRates.mqlToSql;
+      const opps = sqls * conversionRates.sqlToOpp;
+      const proposals = opps * conversionRates.oppToProposal;
+      const wins = proposals * conversionRates.proposalToWin;
 
       const newArr = wins * baseAcv;
       const currentRunRate =
-        monthsInPeriod > 0
-          ? newArr / monthsInPeriod
-          : 0;
-      const forecastArr =
-        currentRunRate * monthsInTargetPeriod;
-      const gapToTarget =
-        forecastArr - benchmarks.targetArr;
+        monthsInPeriod > 0 ? newArr / monthsInPeriod : 0;
+      const forecastArr = currentRunRate * monthsInTargetPeriod;
+      const gapToTarget = forecastArr - benchmarks.targetArr;
 
       setActiveScenario("boost-leads");
       setScenarioMetrics({
@@ -304,10 +258,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     }
   };
 
-  const handleActualChange = (
-    field: keyof Actuals,
-    value: string
-  ) => {
+  const handleActualChange = (field: keyof Actuals, value: string) => {
     setActiveScenario(null);
     setScenarioMetrics(null);
 
@@ -319,13 +270,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
         };
       }
 
-      if (
-        field === "includeCustomerSuccess"
-      ) {
+      if (field === "includeCustomerSuccess") {
         return {
           ...prev,
-          includeCustomerSuccess:
-            value === "true",
+          includeCustomerSuccess: value === "true",
         };
       }
 
@@ -338,25 +286,18 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
   };
 
   const gapStatusLabel =
-    selectedMetrics.gapToTarget >= 0
-      ? "Ahead"
-      : "Behind";
+    selectedMetrics.gapToTarget >= 0 ? "Ahead" : "Behind";
 
   const gapStatusTone =
-    selectedMetrics.gapToTarget >= 0
-      ? "good"
-      : "bad";
+    selectedMetrics.gapToTarget >= 0 ? "good" : "bad";
 
-  // ✅ compare against baseMetrics.requiredRunRate (scenarios don't change the target)
+  // Compare current run rate against the required run rate
   const runRateStatusTone =
-    selectedMetrics.currentRunRate >=
-    baseMetrics.requiredRunRate
+    selectedMetrics.currentRunRate >= baseMetrics.requiredRunRate
       ? "good"
       : "warning";
 
-  const gapAbs = Math.abs(
-    selectedMetrics.gapToTarget
-  );
+  const gapAbs = Math.abs(selectedMetrics.gapToTarget);
 
   return (
     <div className="space-y-6">
@@ -365,90 +306,62 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
         <div className="mb-4 flex items-center justify-between gap-2">
           <div>
             <h2 className="text-sm font-semibold text-slate-100">
-              Funnel and ARR performance for a recent
-              period
+              Funnel and ARR performance for a recent period
             </h2>
             <p className="text-xs text-slate-400">
-              Plug in a recent 30 / 60 / 90-day period.
-              The model will project this performance
-              against your ARR target.
+              Plug in a recent 30 / 60 / 90-day period. The model will project
+              this performance against your ARR target.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-xs text-slate-300">
-              Timeframe
-            </label>
+            <label className="text-xs text-slate-300">Timeframe</label>
             <select
               className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs"
               value={actuals.timeframe}
               onChange={(e) =>
-                handleActualChange(
-                  "timeframe",
-                  e.target.value
-                )
+                handleActualChange("timeframe", e.target.value)
               }
             >
-              <option value="30">
-                Last 30 days
-              </option>
-              <option value="60">
-                Last 60 days
-              </option>
-              <option value="90">
-                Last 90 days
-              </option>
+              <option value="30">Last 30 days</option>
+              <option value="60">Last 60 days</option>
+              <option value="90">Last 90 days</option>
             </select>
           </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-6">
           <div className="md:col-span-1">
-            <label className="block text-xs text-slate-300">
-              Leads
-            </label>
+            <label className="block text-xs text-slate-300">Leads</label>
             <input
               type="number"
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
               value={actuals.leads}
               onChange={(e) =>
-                handleActualChange(
-                  "leads",
-                  e.target.value
-                )
+                handleActualChange("leads", e.target.value)
               }
             />
           </div>
 
           <div className="md:col-span-1">
-            <label className="block text-xs text-slate-300">
-              MQLs
-            </label>
+            <label className="block text-xs text-slate-300">MQLs</label>
             <input
               type="number"
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
               value={actuals.mqls}
               onChange={(e) =>
-                handleActualChange(
-                  "mqls",
-                  e.target.value
-                )
+                handleActualChange("mqls", e.target.value)
               }
             />
           </div>
 
           <div className="md:col-span-1">
-            <label className="block text-xs text-slate-300">
-              SQLs
-            </label>
+            <label className="block text-xs text-slate-300">SQLs</label>
             <input
               type="number"
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
               value={actuals.sqls}
               onChange={(e) =>
-                handleActualChange(
-                  "sqls",
-                  e.target.value
-                )
+                handleActualChange("sqls", e.target.value)
               }
             />
           </div>
@@ -462,44 +375,31 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
               value={actuals.opps}
               onChange={(e) =>
-                handleActualChange(
-                  "opps",
-                  e.target.value
-                )
+                handleActualChange("opps", e.target.value)
               }
             />
           </div>
 
           <div className="md:col-span-1">
-            <label className="block text-xs text-slate-300">
-              Proposals
-            </label>
+            <label className="block text-xs text-slate-300">Proposals</label>
             <input
               type="number"
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
               value={actuals.proposals}
               onChange={(e) =>
-                handleActualChange(
-                  "proposals",
-                  e.target.value
-                )
+                handleActualChange("proposals", e.target.value)
               }
             />
           </div>
 
           <div className="md:col-span-1">
-            <label className="block text-xs text-slate-300">
-              Wins
-            </label>
+            <label className="block text-xs text-slate-300">Wins</label>
             <input
               type="number"
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
               value={actuals.wins}
               onChange={(e) =>
-                handleActualChange(
-                  "wins",
-                  e.target.value
-                )
+                handleActualChange("wins", e.target.value)
               }
             />
           </div>
@@ -513,25 +413,19 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
               value={actuals.newArr}
               onChange={(e) =>
-                handleActualChange(
-                  "newArr",
-                  e.target.value
-                )
+                handleActualChange("newArr", e.target.value)
               }
             />
           </div>
 
           <div className="md:col-span-2">
             <label className="block text-xs text-slate-300">
-              Include Customer Success (NRR) in ARR
-              path
+              Include Customer Success (NRR) in ARR path
             </label>
             <select
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
               value={
-                actuals.includeCustomerSuccess
-                  ? "true"
-                  : "false"
+                actuals.includeCustomerSuccess ? "true" : "false"
               }
               onChange={(e) =>
                 handleActualChange(
@@ -560,10 +454,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               onChange={(e) =>
                 handleActualChange(
                   "churnRate",
-                  String(
-                    (Number(e.target.value) || 0) /
-                      100
-                  )
+                  String((Number(e.target.value) || 0) / 100)
                 )
               }
             />
@@ -580,10 +471,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               onChange={(e) =>
                 handleActualChange(
                   "expansionRate",
-                  String(
-                    (Number(e.target.value) || 0) /
-                      100
-                  )
+                  String((Number(e.target.value) || 0) / 100)
                 )
               }
             />
@@ -602,19 +490,15 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
         />
         <HeroCard
           title="Forecast ARR"
-          value={formatCurrency(
-            selectedMetrics.forecastArr
-          )}
+          value={formatCurrency(selectedMetrics.forecastArr)}
           subtitle="Based on current run rate"
           statusLabel={
-            selectedMetrics.forecastArr >=
-            benchmarks.targetArr
+            selectedMetrics.forecastArr >= benchmarks.targetArr
               ? "Above target"
               : "Below target"
           }
           statusTone={
-            selectedMetrics.forecastArr >=
-            benchmarks.targetArr
+            selectedMetrics.forecastArr >= benchmarks.targetArr
               ? "good"
               : "warning"
           }
@@ -628,9 +512,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
         />
         <HeroCard
           title="Current Run Rate"
-          value={formatCurrency(
-            selectedMetrics.currentRunRate
-          )}
+          value={formatCurrency(selectedMetrics.currentRunRate)}
           subtitle="Average new ARR per month"
           statusLabel={
             runRateStatusTone === "good"
@@ -641,9 +523,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
         />
         <HeroCard
           title="Required Run Rate"
-          value={formatCurrency(
-            baseMetrics.requiredRunRate
-          )}
+          value={formatCurrency(baseMetrics.requiredRunRate)}
           subtitle="Average new ARR needed per month"
           statusLabel=""
           statusTone="neutral"
@@ -658,9 +538,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               Priority scenarios to improve outcome
             </h2>
             <p className="text-xs text-slate-400">
-              The model flags underperforming stages and
-              shows what happens if you fix them or pull key
-              levers.
+              The model flags underperforming stages and shows what
+              happens if you fix them or pull key levers.
             </p>
           </div>
           {activeScenario && (
@@ -685,17 +564,12 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               <p className="text-xs text-slate-400">
                 {weakestStage ? (
                   <>
-                    {weakestStage.label} is currently
-                    lagging target. Actual{" "}
-                    {formatPercent(
-                      weakestStage.actual
-                    )}{" "}
-                    vs target{" "}
-                    {formatPercent(
-                      weakestStage.target
-                    )}
-                    . See the impact of bringing it
-                    back to benchmark.
+                    {weakestStage.label} is currently lagging
+                    target. Actual{" "}
+                    {formatPercent(weakestStage.actual)} vs
+                    target {formatPercent(weakestStage.target)}.
+                    See the impact of bringing it back to
+                    benchmark.
                   </>
                 ) : (
                   "All stages are at or above target. The model will still simulate the impact of lifting a mid-funnel stage."
@@ -703,12 +577,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               </p>
             </div>
             <button
-              onClick={() =>
-                applyScenario("weakest-stage")
-              }
+              onClick={() => applyScenario("weakest-stage")}
               className={`mt-3 inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                activeScenario ===
-                "weakest-stage"
+                activeScenario === "weakest-stage"
                   ? "bg-sky-500 text-slate-950"
                   : "bg-slate-800 text-slate-100 hover:bg-slate-700"
               }`}
@@ -724,17 +595,13 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 Increase ACV by 10%
               </h3>
               <p className="text-xs text-slate-400">
-                Current ACV is around{" "}
-                {formatCurrency(baseAcv)}. See what
-                happens if you improve pricing, discount
-                discipline, or packaging to lift ACV by
-                10%.
+                Current ACV is around {formatCurrency(baseAcv)}.
+                See what happens if you improve pricing, discount
+                discipline, or packaging to lift ACV by 10%.
               </p>
             </div>
             <button
-              onClick={() =>
-                applyScenario("lift-acv")
-              }
+              onClick={() => applyScenario("lift-acv")}
               className={`mt-3 inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 activeScenario === "lift-acv"
                   ? "bg-sky-500 text-slate-950"
@@ -752,16 +619,13 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 Increase lead volume by 20%
               </h3>
               <p className="text-xs text-slate-400">
-                Model the impact of a 20% uplift in lead
-                volume at current conversion rates. Useful
-                for testing paid budget or new channel
-                plays.
+                Model the impact of a 20% uplift in lead volume at
+                current conversion rates. Useful for testing paid
+                budget or new channel plays.
               </p>
             </div>
             <button
-              onClick={() =>
-                applyScenario("boost-leads")
-              }
+              onClick={() => applyScenario("boost-leads")}
               className={`mt-3 inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 activeScenario === "boost-leads"
                   ? "bg-sky-500 text-slate-950"
