@@ -89,13 +89,13 @@ export default function MainDashboard() {
       currentArr: 2000000,
       targetArr: 3500000,
       timeframeWeeks: 26,
+      avgDealSizeTarget: 50000, // target ACV
     },
   });
 
   const [includeCs, setIncludeCs] = useState(false);
   const [showBenchmarks, setShowBenchmarks] = useState(true);
 
-  // Timeframe in days, mapped to weeks internally
   const [timeframeDays, setTimeframeDays] = useState<30 | 60 | 90>(90);
 
   const [actuals, setActuals] = useState<Actuals>({
@@ -115,30 +115,46 @@ export default function MainDashboard() {
 
   const actualRates = deriveActualRates(actuals);
 
+  const arrRun = computeArrRunRate(benchmarks, actuals, includeCs);
   const {
     requiredNewArrTotal,
     requiredNewArrPerWeek,
+    requiredNewArrPerMonth,
     actualNewArrPerWeek,
     actualNewArrPerMonth,
-    requiredNewArrPerMonth,
-  } = computeArrRunRate(benchmarks, actuals, includeCs);
+    forecastArrEnd,
+    arrGap,
+  } = arrRun;
 
+  const bottleneck = computeBottleneck(benchmarks, actualRates);
   const {
     bottleneckLabel,
     bottleneckActual,
     bottleneckTarget,
     stagesWithDiff,
-  } = computeBottleneck(benchmarks, actualRates);
+  } = bottleneck;
 
+  const leadReq = computeLeadRequirements(
+    benchmarks,
+    actuals,
+    actualRates,
+    requiredNewArrTotal
+  );
   const {
     winsPerLeadBenchmark,
     estimatedWinsPerLeadActual,
     requiredLeadsTotal,
     requiredLeadsPerWeek,
     currentLeadsPerWeek,
-  } = computeLeadRequirements(benchmarks, actuals, actualRates, requiredNewArrTotal);
+    avgDealSizeActual,
+  } = leadReq;
 
   const timeframeLabel = `${timeframeDays} days`;
+  const acvTarget = benchmarks.revenue.avgDealSizeTarget;
+  const acvDiffPct =
+    acvTarget > 0 && avgDealSizeActual > 0
+      ? ((avgDealSizeActual - acvTarget) / acvTarget) * 100
+      : 0;
 
   return (
     <div className="space-y-6">
@@ -149,7 +165,7 @@ export default function MainDashboard() {
         </h1>
         <p className="text-sm text-slate-400">
           Input a recent period of funnel performance, compare it to your own benchmarks,
-          and see the ARR path and lead volume needed to hit target.
+          and see ACV, ARR run rate, and lead volume needed to hit target.
         </p>
       </header>
 
@@ -163,7 +179,7 @@ export default function MainDashboard() {
 
       {/* Actuals input card */}
       <section className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 space-y-4">
-        {/* Top row: timeframe + ARR + CS toggle */}
+        {/* Top row: timeframe + CS toggle */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-100">
@@ -171,7 +187,8 @@ export default function MainDashboard() {
             </h2>
             <p className="text-xs text-slate-400">
               Choose a recent timeframe (30, 60, or 90 days), enter funnel counts, and
-              the calculator will derive conversion rates, ARR run rate, and lead volume.
+              the calculator will derive conversion rates, ACV, ARR run rate, and required
+              lead volume.
             </p>
           </div>
 
@@ -195,24 +212,6 @@ export default function MainDashboard() {
                 <option value={60}>60 days</option>
                 <option value={90}>90 days</option>
               </select>
-            </label>
-
-            <label className="text-xs text-slate-300 flex flex-col">
-              New ARR in this timeframe (€)
-              <input
-                type="number"
-                className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs"
-                value={actuals.revenue.newArrThisPeriod}
-                onChange={(e) =>
-                  setActuals((prev) => ({
-                    ...prev,
-                    revenue: {
-                      ...prev.revenue,
-                      newArrThisPeriod: Number(e.target.value) || 0,
-                    },
-                  }))
-                }
-              />
             </label>
 
             <label className="flex items-center gap-2 text-xs text-slate-300 mt-1">
@@ -318,40 +317,80 @@ export default function MainDashboard() {
             />
           </div>
         </div>
+
+        {/* New ARR + ACV row */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <label className="text-xs text-slate-300 flex flex-col">
+            New ARR in this timeframe (€)
+            <input
+              type="number"
+              className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs"
+              value={actuals.revenue.newArrThisPeriod}
+              onChange={(e) =>
+                setActuals((prev) => ({
+                  ...prev,
+                  revenue: {
+                    ...prev.revenue,
+                    newArrThisPeriod: Number(e.target.value) || 0,
+                  },
+                }))
+              }
+            />
+            <span className="text-[10px] text-slate-500 mt-1">
+              Total new ARR closed in this period.
+            </span>
+          </label>
+
+          <div className="text-xs text-slate-300 flex flex-col">
+            <span>Average contract value (ACV)</span>
+            <div className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-100">
+              {avgDealSizeActual > 0
+                ? `€${Math.round(avgDealSizeActual).toLocaleString()}`
+                : "Enter wins and ARR to calculate ACV"}
+            </div>
+            <span className="text-[10px] text-slate-500 mt-1">
+              Calculated as New ARR / Wins in this timeframe.
+            </span>
+          </div>
+        </div>
       </section>
 
       {/* Key metrics strip */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
-          label="Target ARR"
-          value={`€${benchmarks.revenue.targetArr.toLocaleString()}`}
-          helper="Goal at end of timeframe"
-        />
-        <StatCard
-          label="Current ARR"
-          value={`€${benchmarks.revenue.currentArr.toLocaleString()}`}
-          helper="Starting point"
-        />
-        <StatCard
-          label={`New ARR (${timeframeLabel})`}
-          value={`€${Math.round(
-            actuals.revenue.newArrThisPeriod
-          ).toLocaleString()}`}
-          helper="Closed in this timeframe"
-        />
-        <StatCard
-          label="Required ARR / month"
-          value={`€${Math.round(requiredNewArrPerMonth).toLocaleString()}`}
-          helper="To reach target on time"
-        />
-        <StatCard
-          label="Required leads / week"
+          label="ACV vs target"
           value={
-            requiredLeadsPerWeek > 0
-              ? requiredLeadsPerWeek.toFixed(1)
+            avgDealSizeActual > 0
+              ? `€${Math.round(avgDealSizeActual).toLocaleString()}`
               : "—"
           }
-          helper="At benchmark conversion rates"
+          helper={
+            avgDealSizeActual > 0 && acvTarget > 0
+              ? `Benchmark €${Math.round(acvTarget).toLocaleString()} · ${
+                  acvDiffPct >= 0 ? "+" : ""
+                }${acvDiffPct.toFixed(1)}%`
+              : "Enter ARR and wins to see ACV vs target."
+          }
+        />
+        <StatCard
+          label="Forecast ARR at end of target period"
+          value={`€${Math.round(forecastArrEnd).toLocaleString()}`}
+          helper="Based on current run rate and NRR setting."
+        />
+        <StatCard
+          label="Gap to target ARR"
+          value={`€${Math.round(arrGap).toLocaleString()}`}
+          helper={arrGap > 0 ? "Additional ARR needed to hit target." : "On track or above target at current run rate."}
+        />
+        <StatCard
+          label="Current run rate (monthly)"
+          value={`€${Math.round(actualNewArrPerMonth).toLocaleString()}`}
+          helper={`From new ARR in ${timeframeLabel}.`}
+        />
+        <StatCard
+          label="Required run rate (monthly)"
+          value={`€${Math.round(requiredNewArrPerMonth).toLocaleString()}`}
+          helper="Average new ARR per month needed to hit target."
         />
       </section>
 
@@ -363,36 +402,37 @@ export default function MainDashboard() {
             ARR run rate versus target
           </h3>
           <p className="text-xs text-slate-400">
-            Based on your new ARR in this timeframe and the weeks remaining to
-            reach your target.
+            Based on your current new ARR pace, time to target, and optional NRR impact.
           </p>
           <div className="mt-2 space-y-1 text-sm">
             <div className="flex justify-between">
-              <span className="text-slate-300">Target new ARR needed</span>
+              <span className="text-slate-300">Target ARR</span>
               <span className="font-medium">
-                €{Math.round(requiredNewArrTotal).toLocaleString()}
+                €{benchmarks.revenue.targetArr.toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-300">Required ARR / week</span>
+              <span className="text-slate-300">Forecast ARR</span>
               <span className="font-medium">
-                €{Math.round(requiredNewArrPerWeek).toLocaleString()}
+                €{Math.round(forecastArrEnd).toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-300">
-                Required ARR / month (approx)
-              </span>
+              <span className="text-slate-300">Gap to target</span>
               <span className="font-medium">
-                €{Math.round(requiredNewArrPerMonth).toLocaleString()}
+                €{Math.round(arrGap).toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between pt-2 border-t border-slate-800 mt-2">
-              <span className="text-slate-300">
-                Current ARR / month (approx)
-              </span>
+              <span className="text-slate-300">Current new ARR / month</span>
               <span className="font-medium">
                 €{Math.round(actualNewArrPerMonth).toLocaleString()}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-300">Required new ARR / month</span>
+              <span className="font-medium">
+                €{Math.round(requiredNewArrPerMonth).toLocaleString()}
               </span>
             </div>
           </div>
@@ -443,7 +483,7 @@ export default function MainDashboard() {
           </h3>
           <p className="text-xs text-slate-400">
             Based on your target ARR, timeframe, benchmark conversion rates, and
-            estimated deal size.
+            estimated ACV.
           </p>
           {winsPerLeadBenchmark > 0 && requiredLeadsTotal > 0 ? (
             <div className="mt-2 text-sm space-y-1">
@@ -615,15 +655,23 @@ function computeArrRunRate(
 
   let requiredNewArrTotal = Math.max(targetArr - currentArr, 0);
 
+  let forecastArrEnd = currentArr;
+
   if (includeCs && benchmarks.cs.nrrTarget > 0) {
     const nrrFactor = benchmarks.cs.nrrTarget / 100;
     const yearFraction = timeframeWeeks / 52;
     const baseGrowthFromNrr = currentArr * (nrrFactor - 1) * yearFraction;
+    forecastArrEnd += baseGrowthFromNrr;
     requiredNewArrTotal = Math.max(
-      targetArr - (currentArr + baseGrowthFromNrr),
+      targetArr - forecastArrEnd,
       0
     );
   }
+
+  // add expected new ARR at current run rate over the target timeframe
+  forecastArrEnd += actualNewArrPerWeek * timeframeWeeks;
+
+  const arrGap = Math.max(targetArr - forecastArrEnd, 0);
 
   const requiredNewArrPerWeek = safeDiv(requiredNewArrTotal, timeframeWeeks || 1);
   const requiredNewArrPerMonth = requiredNewArrPerWeek * 4.33;
@@ -634,6 +682,8 @@ function computeArrRunRate(
     requiredNewArrPerMonth,
     actualNewArrPerWeek,
     actualNewArrPerMonth,
+    forecastArrEnd,
+    arrGap,
   };
 }
 
@@ -725,12 +775,12 @@ function computeLeadRequirements(
   const estimatedWinsPerLeadActual = chainActual;
 
   // Estimate average deal size from actuals if possible
-  let avgDealSize = 0;
+  let avgDealSizeActual = 0;
   const estimatedWinsThisPeriod =
     actuals.funnel.leads * estimatedWinsPerLeadActual;
 
   if (estimatedWinsThisPeriod > 0) {
-    avgDealSize = safeDiv(
+    avgDealSizeActual = safeDiv(
       actuals.revenue.newArrThisPeriod,
       estimatedWinsThisPeriod
     );
@@ -739,8 +789,8 @@ function computeLeadRequirements(
   let requiredLeadsTotal = 0;
   let requiredLeadsPerWeek = 0;
 
-  if (requiredNewArrTotal > 0 && winsPerLeadBenchmark > 0 && avgDealSize > 0) {
-    const requiredWins = safeDiv(requiredNewArrTotal, avgDealSize);
+  if (requiredNewArrTotal > 0 && winsPerLeadBenchmark > 0 && avgDealSizeActual > 0) {
+    const requiredWins = safeDiv(requiredNewArrTotal, avgDealSizeActual);
     requiredLeadsTotal = safeDiv(requiredWins, winsPerLeadBenchmark);
     requiredLeadsPerWeek = safeDiv(
       requiredLeadsTotal,
@@ -759,5 +809,6 @@ function computeLeadRequirements(
     requiredLeadsTotal,
     requiredLeadsPerWeek,
     currentLeadsPerWeek,
+    avgDealSizeActual,
   };
 }
