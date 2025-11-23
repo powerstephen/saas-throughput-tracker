@@ -347,9 +347,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       ? "good"
       : "bad";
 
+  // ✅ compare against baseMetrics.requiredRunRate (scenarios don't change the target)
   const runRateStatusTone =
     selectedMetrics.currentRunRate >=
-    selectedMetrics.requiredRunRate
+    baseMetrics.requiredRunRate
       ? "good"
       : "warn";
 
