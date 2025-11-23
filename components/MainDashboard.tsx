@@ -3,10 +3,7 @@
 import React, { useState } from "react";
 import BenchmarksPanel, { Benchmarks } from "./BenchmarksPanel";
 
-type PeriodLabel = "Last month" | "Last quarter" | "Last year" | "Custom";
-
 type Actuals = {
-  periodLabel: PeriodLabel;
   periodWeeks: number;
   funnel: {
     leads: number;
@@ -98,9 +95,11 @@ export default function MainDashboard() {
   const [includeCs, setIncludeCs] = useState(false);
   const [showBenchmarks, setShowBenchmarks] = useState(true);
 
+  // Timeframe in days, mapped to weeks internally
+  const [timeframeDays, setTimeframeDays] = useState<30 | 60 | 90>(90);
+
   const [actuals, setActuals] = useState<Actuals>({
-    periodLabel: "Last quarter",
-    periodWeeks: 13,
+    periodWeeks: 90 / 7,
     funnel: {
       leads: 1200,
       mqls: 360,
@@ -139,6 +138,8 @@ export default function MainDashboard() {
     currentLeadsPerWeek,
   } = computeLeadRequirements(benchmarks, actuals, actualRates, requiredNewArrTotal);
 
+  const timeframeLabel = `${timeframeDays} days`;
+
   return (
     <div className="space-y-6">
       {/* Heading */}
@@ -162,50 +163,55 @@ export default function MainDashboard() {
 
       {/* Actuals input card */}
       <section className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 space-y-4">
+        {/* Top row: timeframe + ARR + CS toggle */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-100">
               Funnel and ARR performance for a recent period
             </h2>
             <p className="text-xs text-slate-400">
-              Use a recent period such as last month or last quarter. Enter counts for each
-              stage. The calculator will derive conversion rates and compare them to your targets.
+              Choose a recent timeframe (30, 60, or 90 days), enter funnel counts, and
+              the calculator will derive conversion rates, ARR run rate, and lead volume.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-end gap-3">
             <label className="text-xs text-slate-300 flex flex-col">
-              Period label
+              Timeframe
               <select
                 className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs"
-                value={actuals.periodLabel}
-                onChange={(e) =>
+                value={timeframeDays}
+                onChange={(e) => {
+                  const days = Number(e.target.value) as 30 | 60 | 90;
+                  const weeks = days / 7;
+                  setTimeframeDays(days);
                   setActuals((prev) => ({
                     ...prev,
-                    periodLabel: e.target.value as PeriodLabel,
-                  }))
-                }
+                    periodWeeks: weeks,
+                  }));
+                }}
               >
-                <option>Last month</option>
-                <option>Last quarter</option>
-                <option>Last year</option>
-                <option>Custom</option>
+                <option value={30}>30 days</option>
+                <option value={60}>60 days</option>
+                <option value={90}>90 days</option>
               </select>
             </label>
 
             <label className="text-xs text-slate-300 flex flex-col">
-              Period length (weeks)
+              New ARR in this timeframe (€)
               <input
                 type="number"
                 className="mt-1 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs"
-                value={actuals.periodWeeks}
+                value={actuals.revenue.newArrThisPeriod}
                 onChange={(e) =>
                   setActuals((prev) => ({
                     ...prev,
-                    periodWeeks: Number(e.target.value) || 1,
+                    revenue: {
+                      ...prev.revenue,
+                      newArrThisPeriod: Number(e.target.value) || 0,
+                    },
                   }))
                 }
-                min={1}
               />
             </label>
 
@@ -220,7 +226,7 @@ export default function MainDashboard() {
           </div>
         </div>
 
-        {/* Funnel row: Leads → Wins, counts on top, actual vs target % under each */}
+        {/* Funnel row: Leads → Wins */}
         <div className="overflow-x-auto">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 min-w-[600px]">
             {/* Leads */}
@@ -312,35 +318,41 @@ export default function MainDashboard() {
             />
           </div>
         </div>
+      </section>
 
-        {/* New ARR panel */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
-          <div className="md:col-span-1">
-            <h3 className="text-xs font-semibold text-slate-200 mb-2">
-              New ARR for this period
-            </h3>
-            <div className="space-y-2">
-              <Field
-                label={`New ARR in ${actuals.periodLabel} (€)`}
-                value={actuals.revenue.newArrThisPeriod}
-                onChange={(v) =>
-                  setActuals((prev) => ({
-                    ...prev,
-                    revenue: { ...prev.revenue, newArrThisPeriod: v },
-                  }))
-                }
-              />
-              <ReadOnlyField
-                label="New ARR per week (€)"
-                value={actualNewArrPerWeek}
-              />
-              <ReadOnlyField
-                label="New ARR per month (approx, €)"
-                value={actualNewArrPerMonth}
-              />
-            </div>
-          </div>
-        </div>
+      {/* Key metrics strip */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard
+          label="Target ARR"
+          value={`€${benchmarks.revenue.targetArr.toLocaleString()}`}
+          helper="Goal at end of timeframe"
+        />
+        <StatCard
+          label="Current ARR"
+          value={`€${benchmarks.revenue.currentArr.toLocaleString()}`}
+          helper="Starting point"
+        />
+        <StatCard
+          label={`New ARR (${timeframeLabel})`}
+          value={`€${Math.round(
+            actuals.revenue.newArrThisPeriod
+          ).toLocaleString()}`}
+          helper="Closed in this timeframe"
+        />
+        <StatCard
+          label="Required ARR / month"
+          value={`€${Math.round(requiredNewArrPerMonth).toLocaleString()}`}
+          helper="To reach target on time"
+        />
+        <StatCard
+          label="Required leads / week"
+          value={
+            requiredLeadsPerWeek > 0
+              ? requiredLeadsPerWeek.toFixed(1)
+              : "—"
+          }
+          helper="At benchmark conversion rates"
+        />
       </section>
 
       {/* Results: overview cards */}
@@ -351,7 +363,7 @@ export default function MainDashboard() {
             ARR run rate versus target
           </h3>
           <p className="text-xs text-slate-400">
-            Based on your new ARR in {actuals.periodLabel} and the timeframe to
+            Based on your new ARR in this timeframe and the weeks remaining to
             reach your target.
           </p>
           <div className="mt-2 space-y-1 text-sm">
@@ -449,7 +461,7 @@ export default function MainDashboard() {
               </div>
               <div className="flex justify-between pt-2 border-t border-slate-800 mt-2">
                 <span className="text-slate-300">
-                  Current leads / week (this period)
+                  Current leads / week (this timeframe)
                 </span>
                 <span className="font-medium">
                   {currentLeadsPerWeek.toFixed(1)}
@@ -518,43 +530,6 @@ export default function MainDashboard() {
 
 // ---------- Helper components ----------
 
-type FieldProps = {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-};
-
-function Field({ label, value, onChange }: FieldProps) {
-  return (
-    <label className="flex flex-col gap-1 text-xs text-slate-300">
-      <span>{label}</span>
-      <input
-        type="number"
-        inputMode="decimal"
-        value={Number.isNaN(value) ? "" : value}
-        onChange={(e) => onChange(Number(e.target.value) || 0)}
-        className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-      />
-    </label>
-  );
-}
-
-type ReadOnlyFieldProps = {
-  label: string;
-  value: number;
-};
-
-function ReadOnlyField({ label, value }: ReadOnlyFieldProps) {
-  return (
-    <div className="flex flex-col gap-1 text-xs text-slate-300">
-      <span>{label}</span>
-      <div className="bg-slate-950 border border-slate-800 rounded-md px-2 py-1 text-xs text-slate-100">
-        €{Math.round(value).toLocaleString()}
-      </div>
-    </div>
-  );
-}
-
 type FunnelBoxProps = {
   title: string;
   count: number;
@@ -584,23 +559,42 @@ function FunnelBox({
         onChange={(e) => onChange(Number(e.target.value) || 0)}
         className="w-full bg-slate-900 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
       />
-      {showRates && rateLabel && actualRate !== undefined && targetRate !== undefined && (
-        <div className="mt-2 text-[10px] space-y-0.5">
-          <div className="text-slate-400">{rateLabel}</div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Actual</span>
-            <span className="font-medium text-slate-100">
-              {actualRate.toFixed(1)}%
-            </span>
+      {showRates &&
+        rateLabel &&
+        actualRate !== undefined &&
+        targetRate !== undefined && (
+          <div className="mt-2 text-[10px] space-y-0.5">
+            <div className="text-slate-400">{rateLabel}</div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Actual</span>
+              <span className="font-medium text-slate-100">
+                {actualRate.toFixed(1)}%
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Target</span>
+              <span className="font-medium text-slate-100">
+                {targetRate.toFixed(1)}%
+              </span>
+            </div>
           </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Target</span>
-            <span className="font-medium text-slate-100">
-              {targetRate.toFixed(1)}%
-            </span>
-          </div>
-        </div>
-      )}
+        )}
+    </div>
+  );
+}
+
+type StatCardProps = {
+  label: string;
+  value: string;
+  helper?: string;
+};
+
+function StatCard({ label, value, helper }: StatCardProps) {
+  return (
+    <div className="bg-slate-900/90 border border-slate-700 rounded-xl p-3 flex flex-col gap-1">
+      <div className="text-xs text-slate-400">{label}</div>
+      <div className="text-lg font-semibold text-slate-50">{value}</div>
+      {helper && <div className="text-[11px] text-slate-500">{helper}</div>}
     </div>
   );
 }
