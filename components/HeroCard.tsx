@@ -1,46 +1,34 @@
+// components/HeroCard.tsx
 import React from "react";
 
 type HeroCardProps = {
   title: string;
-  valueLabel: string;
   value: string;
-  description: string;
+  subtitle: string;
   statusLabel: string;
-  statusTone?: "neutral" | "good" | "bad";
-};
-
-const toneClasses: Record<
-  NonNullable<HeroCardProps["statusTone"]>,
-  string
-> = {
-  neutral: "bg-slateCardSoft text-slate-200",
-  good: "bg-emerald-500/10 text-emerald-300",
-  bad: "bg-rose-500/10 text-rose-300"
+  statusTone: "good" | "warning" | "bad";
 };
 
 export default function HeroCard({
   title,
-  valueLabel,
   value,
-  description,
+  subtitle,
   statusLabel,
-  statusTone = "neutral"
+  statusTone,
 }: HeroCardProps) {
+  const statusClass =
+    statusTone === "good"
+      ? "hero-status-good"
+      : statusTone === "warning"
+      ? "hero-status-warning"
+      : "hero-status-bad";
+
   return (
-    <div className="flex h-full flex-col rounded-2xl bg-slateCard p-4 shadow-lg shadow-black/40">
-      <div className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-400">
-        {title}
-      </div>
-      <div className="text-sm text-slate-300">{valueLabel}</div>
-      <div className="mt-1 text-2xl font-semibold tracking-tight">
-        {value}
-      </div>
-      <div className="mt-2 text-xs text-slate-300">{description}</div>
-      <div
-        className={`mt-3 inline-flex items-center justify-center rounded-full px-2.5 py-1 text-[11px] font-medium ${toneClasses[statusTone]}`}
-      >
-        {statusLabel}
-      </div>
+    <div className="hero-card">
+      <div className="hero-title">{title}</div>
+      <div className="hero-value">{value}</div>
+      <div className="hero-subtitle">{subtitle}</div>
+      <div className={`hero-status-pill ${statusClass}`}>{statusLabel}</div>
     </div>
   );
 }
