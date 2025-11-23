@@ -172,6 +172,7 @@ export default function MainDashboard() {
       : 0;
 
   const baseArr = actuals.revenue.newArrThisPeriod;
+  const targetArr = benchmarks.revenue.targetArr;
 
   const scenarios = computeScenarios({
     benchmarks,
@@ -186,6 +187,18 @@ export default function MainDashboard() {
   });
 
   const selectedScenario = scenarios.find((s) => s.id === selectedScenarioId);
+  const scenarioExtraArr = selectedScenario?.extraArr ?? 0;
+
+  // ---------- Scenario-adjusted metrics for hero + overview ----------
+
+  const forecastArrEndDisplayed = forecastArrEnd + scenarioExtraArr;
+  const arrGapDisplayed = Math.max(targetArr - forecastArrEndDisplayed, 0);
+
+  const timeframeMonths = (benchmarks.revenue.timeframeWeeks || 1) / 4.33;
+  const extraMonthlyFromScenario =
+    timeframeMonths > 0 ? scenarioExtraArr / timeframeMonths : 0;
+  const actualNewArrPerMonthDisplayed =
+    actualNewArrPerMonth + extraMonthlyFromScenario;
 
   return (
     <div className="space-y-6">
@@ -397,7 +410,7 @@ export default function MainDashboard() {
         </div>
       </section>
 
-      {/* Key metrics strip – more prominent, aligned numbers */}
+      {/* Key metrics strip – hero metrics */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           label="ACV vs target"
@@ -425,37 +438,37 @@ export default function MainDashboard() {
         />
         <StatCard
           label="Forecast ARR at end of target period"
-          value={`€${Math.round(forecastArrEnd).toLocaleString()}`}
+          value={`€${Math.round(forecastArrEndDisplayed).toLocaleString()}`}
           helper={
             selectedScenario
-              ? `Scenario: €${Math.round(
-                  forecastArrEnd + selectedScenario.extraArr
-                ).toLocaleString()} if applied.`
+              ? "Includes impact of selected scenario."
               : "Based on current run rate and NRR setting."
           }
-          tone={arrGap <= 0 ? "good" : "bad"}
+          tone={arrGapDisplayed <= 0 ? "good" : "bad"}
         />
         <StatCard
           label="Gap to target ARR"
-          value={`€${Math.round(arrGap).toLocaleString()}`}
+          value={`€${Math.round(arrGapDisplayed).toLocaleString()}`}
           helper={
             selectedScenario
-              ? `Scenario reduces gap by ~€${Math.round(
-                  Math.min(selectedScenario.gapImprovement, arrGap)
-                ).toLocaleString()}.`
+              ? "Scenario-adjusted gap to ARR target."
               : arrGap > 0
               ? "Additional ARR needed to hit target."
               : "On track or above target at current run rate."
           }
-          tone={arrGap > 0 ? "bad" : "good"}
+          tone={arrGapDisplayed > 0 ? "bad" : "good"}
         />
         <StatCard
           label="Current run rate (monthly)"
-          value={`€${Math.round(actualNewArrPerMonth).toLocaleString()}`}
-          helper={`From new ARR in ${timeframeLabel}.`}
+          value={`€${Math.round(actualNewArrPerMonthDisplayed).toLocaleString()}`}
+          helper={
+            selectedScenario
+              ? "Includes incremental ARR from selected scenario."
+              : `From new ARR in ${timeframeLabel}.`
+          }
           tone={
             requiredNewArrPerMonth > 0
-              ? runRateRatio >= 1
+              ? actualNewArrPerMonthDisplayed / requiredNewArrPerMonth >= 1
                 ? "good"
                 : "bad"
               : "neutral"
@@ -469,6 +482,101 @@ export default function MainDashboard() {
         />
       </section>
 
+      {/* Priority scenarios moved directly under hero metrics */}
+      <section className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-slate-50">
+          Priority scenarios to improve outcome
+        </h3>
+        <p className="text-xs text-slate-400">
+          These are the top levers that would move ARR in this timeframe the most, based
+          on your current inputs and benchmarks. Selecting a scenario updates the ARR
+          metrics above.
+        </p>
+
+        {scenarios.length === 0 ? (
+          <p className="text-xs text-slate-500">
+            Enter some funnel data and ARR to see suggested scenarios.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+            {scenarios.map((s) => (
+              <div
+                key={s.id}
+                className={`rounded-lg border p-3 bg-slate-950/70 space-y-2 ${
+                  selectedScenarioId === s.id
+                    ? "border-cyan-500/60 shadow-[0_0_0_1px_rgba(34,211,238,0.4)]"
+                    : "border-slate-800"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-semibold text-slate-50 mb-1">
+                      {s.title}
+                    </div>
+                    <p className="text-[11px] text-slate-400">{s.description}</p>
+                  </div>
+                </div>
+                <div className="mt-1 space-y-1 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Extra ARR this timeframe</span>
+                    <span className="font-semibold text-emerald-400">
+                      {s.extraArr > 0
+                        ? `€${Math.round(s.extraArr).toLocaleString()}`
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">
+                      Gap reduction (approx)
+                    </span>
+                    <span className="font-semibold text-emerald-300">
+                      {s.gapImprovement > 0
+                        ? `€${Math.round(
+                            Math.min(s.gapImprovement, arrGap)
+                          ).toLocaleString()}`
+                        : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedScenarioId(
+                      selectedScenarioId === s.id ? null : s.id
+                    )
+                  }
+                  className="mt-2 w-full rounded-md border border-cyan-500/70 bg-cyan-500/10 px-2 py-1.5 text-[11px] font-medium text-cyan-100 hover:bg-cyan-500/20 transition-colors"
+                >
+                  {selectedScenarioId === s.id ? "Hide scenario impact" : "Show scenario impact"}
+                </button>
+
+                {selectedScenarioId === s.id && (
+                  <div className="mt-2 border-t border-slate-800 pt-2 text-[11px] space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">New ARR (current)</span>
+                      <span className="font-medium text-slate-50">
+                        €{Math.round(baseArr).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">New ARR (scenario)</span>
+                      <span className="font-medium text-emerald-300">
+                        €{Math.round(s.newArrScenario).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      The hero metrics above are showing an approximate impact on forecast
+                      ARR and gap if this scenario is applied.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* Results: overview cards */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* ARR overview */}
@@ -478,31 +586,31 @@ export default function MainDashboard() {
           </h3>
           <p className="text-xs text-slate-400">
             Based on your current new ARR pace, time to target, and optional NRR
-            impact.
+            impact. Scenario impact is reflected if selected above.
           </p>
           <div className="mt-2 space-y-1 text-sm">
             <div className="flex justify-between">
               <span className="text-slate-300">Target ARR</span>
               <span className="font-medium text-slate-50">
-                €{benchmarks.revenue.targetArr.toLocaleString()}
+                €{targetArr.toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-300">Forecast ARR</span>
               <span className="font-medium text-slate-50">
-                €{Math.round(forecastArrEnd).toLocaleString()}
+                €{Math.round(forecastArrEndDisplayed).toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-300">Gap to target</span>
               <span className="font-medium text-slate-50">
-                €{Math.round(arrGap).toLocaleString()}
+                €{Math.round(arrGapDisplayed).toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between pt-2 border-t border-slate-800 mt-2">
               <span className="text-slate-300">Current new ARR / month</span>
               <span className="font-medium text-slate-50">
-                €{Math.round(actualNewArrPerMonth).toLocaleString()}
+                €{Math.round(actualNewArrPerMonthDisplayed).toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
@@ -640,100 +748,6 @@ export default function MainDashboard() {
             </div>
           ))}
         </div>
-      </section>
-
-      {/* Priority scenarios section */}
-      <section className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-slate-50">
-          Priority scenarios to improve outcome
-        </h3>
-        <p className="text-xs text-slate-400">
-          These are the top levers that would move ARR in this timeframe the most, based
-          on your current inputs and benchmarks.
-        </p>
-
-        {scenarios.length === 0 ? (
-          <p className="text-xs text-slate-500">
-            Enter some funnel data and ARR to see suggested scenarios.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-            {scenarios.map((s) => (
-              <div
-                key={s.id}
-                className={`rounded-lg border p-3 bg-slate-950/70 space-y-2 ${
-                  selectedScenarioId === s.id
-                    ? "border-cyan-500/60 shadow-[0_0_0_1px_rgba(34,211,238,0.4)]"
-                    : "border-slate-800"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="font-semibold text-slate-50 mb-1">
-                      {s.title}
-                    </div>
-                    <p className="text-[11px] text-slate-400">{s.description}</p>
-                  </div>
-                </div>
-                <div className="mt-1 space-y-1 text-[11px]">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Extra ARR this timeframe</span>
-                    <span className="font-semibold text-emerald-400">
-                      {s.extraArr > 0
-                        ? `€${Math.round(s.extraArr).toLocaleString()}`
-                        : "—"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">
-                      Gap reduction (approx)
-                    </span>
-                    <span className="font-semibold text-emerald-300">
-                      {s.gapImprovement > 0
-                        ? `€${Math.round(
-                            Math.min(s.gapImprovement, arrGap)
-                          ).toLocaleString()}`
-                        : "—"}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedScenarioId(
-                      selectedScenarioId === s.id ? null : s.id
-                    )
-                  }
-                  className="mt-2 w-full rounded-md border border-cyan-500/70 bg-cyan-500/10 px-2 py-1.5 text-[11px] font-medium text-cyan-100 hover:bg-cyan-500/20 transition-colors"
-                >
-                  {selectedScenarioId === s.id ? "Hide scenario impact" : "Show scenario impact"}
-                </button>
-
-                {selectedScenarioId === s.id && (
-                  <div className="mt-2 border-t border-slate-800 pt-2 text-[11px] space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">New ARR (current)</span>
-                      <span className="font-medium text-slate-50">
-                        €{Math.round(baseArr).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">New ARR (scenario)</span>
-                      <span className="font-medium text-emerald-300">
-                        €{Math.round(s.newArrScenario).toLocaleString()}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      The main metrics above show an approximate impact on forecast ARR
-                      and gap if this scenario is applied.
-                    </p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
       </section>
     </div>
   );
