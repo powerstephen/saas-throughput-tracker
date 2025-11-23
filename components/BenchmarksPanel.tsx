@@ -1,181 +1,251 @@
+// components/BenchmarksPanel.tsx
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import type { Benchmarks } from "@/app/page";
 
-export type Benchmarks = {
-  marketing: {
-    leadsToMql: number;
-    mqlToSql: number;
-  };
-  sales: {
-    sqlToOpp: number;
-    oppToProp: number;
-    propToWin: number;
-  };
-  cs: {
-    nrrTarget: number;
-  };
-  revenue: {
-    currentArr: number;
-    targetArr: number;
-    timeframeWeeks: number;
-    avgDealSizeTarget: number; // ACV benchmark
-  };
-};
-
-type Props = {
+interface Props {
   benchmarks: Benchmarks;
   onChange: (b: Benchmarks) => void;
-  show: boolean;
-  onToggleShow: () => void;
-};
+}
 
-export default function BenchmarksPanel({
-  benchmarks,
-  onChange,
-  show,
-  onToggleShow,
-}: Props) {
-  const handleChange =
-    (path: (string | number)[]) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = Number(e.target.value) || 0;
-      onChange(updateNested(benchmarks, path, value));
-    };
+const BenchmarksPanel: React.FC<Props> = ({ benchmarks, onChange }) => {
+  const [open, setOpen] = useState(true);
+
+  const handleNumberChange = (
+    section: keyof Benchmarks,
+    field: string,
+    value: string
+  ) => {
+    const numeric = Number(value.replace(/[^0-9.]/g, "")) || 0;
+    const updated: Benchmarks = JSON.parse(JSON.stringify(benchmarks));
+    // @ts-expect-error dynamic access
+    updated[section][field] = numeric;
+    onChange(updated);
+  };
 
   return (
-    <section className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 space-y-3">
-      <div className="flex items-center justify-between gap-3">
+    <section className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4 shadow-sm md:px-6 md:py-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-slate-100">
-            Benchmarks and targets
+          <h2 className="text-sm font-medium text-slate-100">
+            Benchmarks & ARR target
           </h2>
           <p className="text-xs text-slate-400">
-            Set your own benchmark conversion rates and ARR targets. These act as
-            the “ideal state” the calculator compares your recent performance against.
+            Targets for conversion rates, NRR and ARR horizon. These drive
+            diagnostics, colour-coding and scenario impact.
           </p>
         </div>
         <button
           type="button"
-          onClick={onToggleShow}
-          className="text-xs px-2 py-1 rounded border border-slate-700 bg-slate-950 hover:bg-slate-800 text-slate-200"
+          onClick={() => setOpen((v) => !v)}
+          className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-medium text-slate-100 hover:bg-slate-800"
         >
-          {show ? "Hide" : "Show"}
+          {open ? "Hide" : "Show"}
         </button>
       </div>
 
-      {show && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 text-xs">
-          {/* Marketing benchmarks */}
-          <div className="space-y-2">
-            <h3 className="font-semibold text-slate-200">Marketing</h3>
-            <Field
-              label="Leads → MQL (%)"
-              value={benchmarks.marketing.leadsToMql}
-              onChange={handleChange(["marketing", "leadsToMql"])}
-            />
-            <Field
-              label="MQL → SQL (%)"
-              value={benchmarks.marketing.mqlToSql}
-              onChange={handleChange(["marketing", "mqlToSql"])}
-            />
+      {!open ? null : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {/* Marketing */}
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Marketing
+            </h3>
+
+            <label className="mb-3 block text-xs text-slate-300">
+              No. leads per period
+              <input
+                type="number"
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
+                value={benchmarks.marketing.leadsPerPeriod}
+                onChange={(e) =>
+                  handleNumberChange(
+                    "marketing",
+                    "leadsPerPeriod",
+                    e.target.value
+                  )
+                }
+              />
+            </label>
+
+            <label className="mb-3 block text-xs text-slate-300">
+              Leads → MQL target (%)
+              <input
+                type="number"
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
+                value={benchmarks.marketing.leadsToMql}
+                onChange={(e) =>
+                  handleNumberChange("marketing", "leadsToMql", e.target.value)
+                }
+              />
+            </label>
+
+            <label className="block text-xs text-slate-300">
+              MQL → SQL target (%)
+              <input
+                type="number"
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
+                value={benchmarks.marketing.mqlToSql}
+                onChange={(e) =>
+                  handleNumberChange("marketing", "mqlToSql", e.target.value)
+                }
+              />
+            </label>
           </div>
 
-          {/* Sales benchmarks */}
-          <div className="space-y-2">
-            <h3 className="font-semibold text-slate-200">Sales</h3>
-            <Field
-              label="SQL → Opp (%)"
-              value={benchmarks.sales.sqlToOpp}
-              onChange={handleChange(["sales", "sqlToOpp"])}
-            />
-            <Field
-              label="Opp → Proposal (%)"
-              value={benchmarks.sales.oppToProp}
-              onChange={handleChange(["sales", "oppToProp"])}
-            />
-            <Field
-              label="Proposal → Win (%)"
-              value={benchmarks.sales.propToWin}
-              onChange={handleChange(["sales", "propToWin"])}
-            />
+          {/* Sales */}
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Sales
+            </h3>
+
+            <label className="mb-3 block text-xs text-slate-300">
+              SQL → Opp target (%)
+              <input
+                type="number"
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
+                value={benchmarks.sales.sqlToOpp}
+                onChange={(e) =>
+                  handleNumberChange("sales", "sqlToOpp", e.target.value)
+                }
+              />
+            </label>
+
+            <label className="mb-3 block text-xs text-slate-300">
+              Opp → Proposal target (%)
+              <input
+                type="number"
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
+                value={benchmarks.sales.oppToProposal}
+                onChange={(e) =>
+                  handleNumberChange(
+                    "sales",
+                    "oppToProposal",
+                    e.target.value
+                  )
+                }
+              />
+            </label>
+
+            <label className="block text-xs text-slate-300">
+              Proposal → Win target (%)
+              <input
+                type="number"
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
+                value={benchmarks.sales.proposalToWin}
+                onChange={(e) =>
+                  handleNumberChange(
+                    "sales",
+                    "proposalToWin",
+                    e.target.value
+                  )
+                }
+              />
+            </label>
           </div>
 
-          {/* CS benchmarks */}
-          <div className="space-y-2">
-            <h3 className="font-semibold text-slate-200">Customer Success</h3>
-            <Field
-              label="NRR target (%)"
-              value={benchmarks.cs.nrrTarget}
-              onChange={handleChange(["cs", "nrrTarget"])}
-              helper="e.g. 110% for strong net retention"
-            />
+          {/* Customer Success */}
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Customer Success
+            </h3>
+
+            <label className="mb-3 block text-xs text-slate-300">
+              Monthly churn target (%)
+              <input
+                type="number"
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
+                value={benchmarks.customerSuccess.monthlyChurn}
+                onChange={(e) =>
+                  handleNumberChange(
+                    "customerSuccess",
+                    "monthlyChurn",
+                    e.target.value
+                  )
+                }
+              />
+            </label>
+
+            <label className="mb-3 block text-xs text-slate-300">
+              Expansion target (%)
+              <input
+                type="number"
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
+                value={benchmarks.customerSuccess.expansion}
+                onChange={(e) =>
+                  handleNumberChange(
+                    "customerSuccess",
+                    "expansion",
+                    e.target.value
+                  )
+                }
+              />
+            </label>
+
+            <label className="block text-xs text-slate-300">
+              NRR target (%)
+              <input
+                type="number"
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
+                value={benchmarks.customerSuccess.nrr}
+                onChange={(e) =>
+                  handleNumberChange("customerSuccess", "nrr", e.target.value)
+                }
+              />
+            </label>
           </div>
 
-          {/* Revenue benchmarks */}
-          <div className="space-y-2">
-            <h3 className="font-semibold text-slate-200">Revenue</h3>
-            <Field
-              label="Current ARR (€)"
-              value={benchmarks.revenue.currentArr}
-              onChange={handleChange(["revenue", "currentArr"])}
-            />
-            <Field
-              label="Target ARR (€)"
-              value={benchmarks.revenue.targetArr}
-              onChange={handleChange(["revenue", "targetArr"])}
-            />
-            <Field
-              label="Time to target (weeks)"
-              value={benchmarks.revenue.timeframeWeeks}
-              onChange={handleChange(["revenue", "timeframeWeeks"])}
-              helper="e.g. 26 weeks ≈ 6 months"
-            />
-            <Field
-              label="Target ACV (€)"
-              value={benchmarks.revenue.avgDealSizeTarget}
-              onChange={handleChange(["revenue", "avgDealSizeTarget"])}
-              helper="Benchmark average contract value"
-            />
+          {/* Revenue */}
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Revenue / ARR horizon
+            </h3>
+
+            <label className="mb-3 block text-xs text-slate-300">
+              Current ARR (€)
+              <input
+                type="number"
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
+                value={benchmarks.revenue.currentArr}
+                onChange={(e) =>
+                  handleNumberChange("revenue", "currentArr", e.target.value)
+                }
+              />
+            </label>
+
+            <label className="mb-3 block text-xs text-slate-300">
+              Target ARR (€)
+              <input
+                type="number"
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
+                value={benchmarks.revenue.targetArr}
+                onChange={(e) =>
+                  handleNumberChange("revenue", "targetArr", e.target.value)
+                }
+              />
+            </label>
+
+            <label className="block text-xs text-slate-300">
+              Timeframe to target (weeks)
+              <input
+                type="number"
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
+                value={benchmarks.revenue.timeframeWeeks}
+                onChange={(e) =>
+                  handleNumberChange(
+                    "revenue",
+                    "timeframeWeeks",
+                    e.target.value
+                  )
+                }
+              />
+            </label>
           </div>
         </div>
       )}
     </section>
   );
-}
-
-type FieldProps = {
-  label: string;
-  value: number;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  helper?: string;
 };
 
-function Field({ label, value, onChange, helper }: FieldProps) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-slate-200">{label}</span>
-      <input
-        type="number"
-        inputMode="decimal"
-        className="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-        value={Number.isNaN(value) ? "" : value}
-        onChange={onChange}
-      />
-      {helper && <span className="text-[10px] text-slate-500">{helper}</span>}
-    </label>
-  );
-}
-
-// small immutable update helper
-function updateNested<T>(obj: T, path: (string | number)[], value: number): T {
-  if (path.length === 0) return obj;
-  const [head, ...rest] = path;
-  return {
-    ...(obj as any),
-    [head]:
-      rest.length === 0
-        ? value
-        : updateNested((obj as any)[head], rest, value),
-  } as T;
-}
+export default BenchmarksPanel;
