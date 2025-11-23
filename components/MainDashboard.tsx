@@ -1,516 +1,612 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import HeroCard from "./HeroCard";
-import type { Benchmarks } from "./BenchmarksPanel";
 
-type MainDashboardProps = {
-  benchmarks: Benchmarks;
-};
+export type Timeframe = 30 | 60 | 90;
 
-type TimeframeOption = 30 | 60 | 90;
-
-type Actuals = {
+export type Actuals = {
+  timeframeDays: Timeframe;
   leads: number;
   mqls: number;
   sqls: number;
   opps: number;
   proposals: number;
   wins: number;
-  newArr: number;
-  timeframeDays: TimeframeOption;
-  acv: number;
-  includeCustomerSuccess: boolean;
+  newArr: number; // ARR closed in this timeframe
+  acv: number; // auto-calculated from newArr / wins (if wins > 0)
 };
 
-type CoreMetrics = {
+export type Benchmarks = {
+  currentArr: number;
   targetArr: number;
-  forecastArr: number;
-  gapToTarget: number; // positive = behind, negative = ahead
-  currentRunRateMonthly: number;
-  requiredRunRateMonthly: number;
+  timeframeWeeks: number;
+  leadToMql: number;
+  mqlToSql: number;
+  sqlToOpp: number;
+  oppToProposal: number;
+  proposalToWin: number;
 };
 
-type ScenarioKey = "stageFix" | "moreLeads" | "combo";
+type ConversionBenchmark = {
+  label: string;
+  fromKey: keyof Actuals;
+  toKey: keyof Actuals;
+  targetRate: number;
+};
 
-export default function MainDashboard({ benchmarks }: MainDashboardProps) {
-  const [actuals, setActuals] = useState<Actuals>({
-    leads: 5000,
-    mqls: 1500,
-    sqls: 600,
-    opps: 200,
-    proposals: 80,
-    wins: 30,
-    newArr: 1_520_833,
-    timeframeDays: 90,
-    acv: 50_000,
-    includeCustomerSuccess: true,
-  });
+type ScenarioApplyType =
+  | { kind: "fixStage"; label: string; targetRate: number; actualRate: number }
+  | { kind: "increaseLeads"; multiplier: number }
+  | { kind: "increaseAcv"; multiplier: number };
 
-  const [activeScenario, setActiveScenario] = useState<ScenarioKey | null>(null);
-  const [scenarioMetrics, setScenarioMetrics] = useState<CoreMetrics | null>(
+type Scenario = {
+  id: string;
+  title: string;
+  subtitle: string;
+  impactLabel: string;
+  impactDeltaArr: number;
+  applyType: ScenarioApplyType;
+};
+
+type Props = {
+  benchmarks: Benchmarks;
+  actuals: Actuals;
+  onActualsChange: (a: Actuals) => void;
+  includeNrr: boolean;
+  onIncludeNrrChange: (v: boolean) => void;
+};
+
+function computeBaseMetrics(
+  actuals: Actuals,
+  benchmarks: Benchmarks,
+  includeNrr: boolean
+) {
+  const monthsInPeriod = actuals.timeframeDays / 30;
+  const currentArr = benchmarks.currentArr;
+  const targetArr = benchmarks.targetArr;
+  const timeframeMonths = benchmarks.timeframeWeeks / 4.345; // rough
+
+  const currentRunRateMonthly = actuals.newArr / (monthsInPeriod || 1);
+
+  const forecastArr = currentArr + currentRunRateMonthly * timeframeMonths;
+
+  const gapToTarget = forecastArr - targetArr;
+
+  const requiredRunRateMonthly =
+    targetArr <= currentArr
+      ? 0
+      : (targetArr - currentArr) / timeframeMonths;
+
+  return {
+    currentRunRateMonthly,
+    forecastArr,
+    gapToTarget,
+    requiredRunRateMonthly,
+    targetArr
+  };
+}
+
+const conversionBenchmarks = (benchmarks: Benchmarks): ConversionBenchmark[] => [
+  {
+    label: "Leads → MQL",
+    fromKey: "leads",
+    toKey: "mqls",
+    targetRate: benchmarks.leadToMql
+  },
+  {
+    label: "MQL → SQL",
+    fromKey: "mqls",
+    toKey: "sqls",
+    targetRate: benchmarks.mqlToSql
+  },
+  {
+    label: "SQL → Opp",
+    fromKey: "sqls",
+    toKey: "opps",
+    targetRate: benchmarks.sqlToOpp
+  },
+  {
+    label: "Opp → Proposal",
+    fromKey: "opps",
+    toKey: "proposals",
+    targetRate: benchmarks.oppToProposal
+  },
+  {
+    label: "Proposal → Win",
+    fromKey: "proposals",
+    toKey: "wins",
+    targetRate: benchmarks.proposalToWin
+  }
+];
+
+function buildScenarios(
+  actuals: Actuals,
+  benchmarks: Benchmarks
+): Scenario[] {
+  const convBenchmarks = conversionBenchmarks(benchmarks);
+  const baseNewArr = actuals.newArr || 0;
+
+  if (baseNewArr <= 0) return [];
+
+  const underperformers: {
+    label: string;
+    actualRate: number;
+    targetRate: number;
+    impactDeltaArr: number;
+  }[] = [];
+
+  for (const bm of convBenchmarks) {
+    const from = actuals[bm.fromKey] as number;
+    const to = actuals[bm.toKey] as number;
+    if (!from || from <= 0) continue;
+
+    const actualRate = to / from;
+    const targetRate = bm.targetRate;
+
+    if (actualRate < targetRate && targetRate > 0) {
+      const multiplier = targetRate / actualRate;
+      const scenarioArr = baseNewArr * multiplier;
+      const delta = scenarioArr - baseNewArr;
+
+      underperformers.push({
+        label: bm.label,
+        actualRate,
+        targetRate,
+        impactDeltaArr: delta
+      });
+    }
+  }
+
+  underperformers.sort((a, b) => b.impactDeltaArr - a.impactDeltaArr);
+
+  const scenarios: Scenario[] = [];
+
+  const topStageScenarios = underperformers.slice(0, 3);
+  for (const u of topStageScenarios) {
+    scenarios.push({
+      id: `fix-${u.label}`,
+      title: `Fix ${u.label}`,
+      subtitle: `Actual ${Math.round(
+        u.actualRate * 100
+      )}% vs target ${Math.round(u.targetRate * 100)}%`,
+      impactLabel: `If this stage performs at target, ARR in this timeframe increases by approx. €${u.impactDeltaArr.toLocaleString()}.`,
+      impactDeltaArr: u.impactDeltaArr,
+      applyType: {
+        kind: "fixStage",
+        label: u.label,
+        targetRate: u.targetRate,
+        actualRate: u.actualRate
+      }
+    });
+  }
+
+  if (scenarios.length === 0) {
+    const leadBoost20 = baseNewArr * 0.2;
+    const acvBoost10 = baseNewArr * 0.1;
+
+    scenarios.push(
+      {
+        id: "growth-leads-20",
+        title: "Increase lead volume by 20%",
+        subtitle: "Assumes conversion rates stay at current levels.",
+        impactLabel: `Approx. +€${leadBoost20.toLocaleString()} ARR in this timeframe.`,
+        impactDeltaArr: leadBoost20,
+        applyType: { kind: "increaseLeads", multiplier: 1.2 }
+      },
+      {
+        id: "growth-acv-10",
+        title: "Increase ACV by 10%",
+        subtitle:
+          "Move up-market or improve pricing / packaging to capture more value per deal.",
+        impactLabel: `Approx. +€${acvBoost10.toLocaleString()} ARR in this timeframe.`,
+        impactDeltaArr: acvBoost10,
+        applyType: { kind: "increaseAcv", multiplier: 1.1 }
+      }
+    );
+  }
+
+  return scenarios;
+}
+
+export default function MainDashboard({
+  benchmarks,
+  actuals,
+  onActualsChange,
+  includeNrr,
+  onIncludeNrrChange
+}: Props) {
+  const [activeScenario, setActiveScenario] = useState<Scenario | null>(
     null
   );
 
-  useEffect(() => {
-    setActiveScenario(null);
-    setScenarioMetrics(null);
-  }, [actuals, benchmarks]);
-
-  const revenueBm = benchmarks.revenue;
-  const currentArr: number = Number(revenueBm.currentArr || 8_500_000);
-  const targetArr: number = Number(revenueBm.arrTarget || 10_000_000);
-
-  const periodMonths = useMemo(
-    () => actuals.timeframeDays / 30,
-    [actuals.timeframeDays]
-  );
-
-  const baseMetrics: CoreMetrics = useMemo(() => {
-    const monthlyRunRate = periodMonths > 0 ? actuals.newArr / periodMonths : 0;
-    const forecastArr = currentArr + actuals.newArr;
-    const gapToTarget = targetArr - forecastArr;
-    const requiredRunRateMonthly =
-      periodMonths > 0 ? (targetArr - currentArr) / periodMonths : 0;
-
-    return {
-      targetArr,
-      forecastArr,
-      gapToTarget,
-      currentRunRateMonthly: monthlyRunRate,
-      requiredRunRateMonthly,
-    };
-  }, [actuals.newArr, currentArr, targetArr, periodMonths]);
-
-  function computeScenarioMetrics(key: ScenarioKey): CoreMetrics {
-    let {
-      targetArr,
-      forecastArr,
-      gapToTarget,
-      currentRunRateMonthly,
-      requiredRunRateMonthly,
-    } = baseMetrics;
-
-    const {
-      leads,
-      mqls,
-      sqls,
-      opps,
-      proposals,
-      wins,
-      timeframeDays,
-      acv,
-    } = actuals;
-
-    const months = timeframeDays / 30;
-
-    const leadToMql = leads > 0 ? mqls / leads : 0;
-    const mqlToSql = mqls > 0 ? sqls / mqls : 0;
-    const sqlToOpp = sqls > 0 ? opps / sqls : 0;
-    const oppToProp = opps > 0 ? proposals / opps : 0;
-    const propToWin = proposals > 0 ? wins / proposals : 0;
-
-    const bmLeadToMql = benchmarks.marketing.leadToMql || 0.25;
-    const bmMqlToSql = benchmarks.marketing.mqlToSql || 0.4;
-    const bmSqlToOpp = benchmarks.sales.sqlToOpp || 0.3;
-    const bmOppToProp = benchmarks.sales.oppToProp || 0.5;
-    const bmPropToWin = benchmarks.sales.propToWin || 0.25;
-
-    const conversions = [
-      { key: "leadToMql", actual: leadToMql, target: bmLeadToMql },
-      { key: "mqlToSql", actual: mqlToSql, target: bmMqlToSql },
-      { key: "sqlToOpp", actual: sqlToOpp, target: bmSqlToOpp },
-      { key: "oppToProp", actual: oppToProp, target: bmOppToProp },
-      { key: "propToWin", actual: propToWin, target: bmPropToWin },
-    ];
-
-    const weakest = conversions.reduce((worst, c) => {
-      const shortfall = c.target - c.actual;
-      const worstShortfall = worst.target - worst.actual;
-      return shortfall > worstShortfall ? c : worst;
-    }, conversions[0]);
-
-    const baseWins = wins;
-
-    if (key === "stageFix" || key === "combo") {
-      const improvedRates: Record<string, number> = {
-        leadToMql,
-        mqlToSql,
-        sqlToOpp,
-        oppToProp,
-        propToWin,
+  // auto-calc ACV whenever wins + newArr change
+  const derivedActuals = useMemo<Actuals>(() => {
+    if (actuals.wins > 0) {
+      return {
+        ...actuals,
+        acv: actuals.newArr / actuals.wins
       };
-
-      improvedRates[weakest.key] = Math.max(
-        weakest.actual,
-        weakest.target,
-        weakest.actual + 0.05
-      );
-
-      const improvedMqls = leads * improvedRates.leadToMql;
-      const improvedSqls = improvedMqls * improvedRates.mqlToSql;
-      const improvedOpps = improvedSqls * improvedRates.sqlToOpp;
-      const improvedProps = improvedOpps * improvedRates.oppToProp;
-      const improvedWins = improvedProps * improvedRates.propToWin;
-
-      const extraWins = Math.max(0, improvedWins - baseWins);
-      const extraArr = extraWins * acv;
-
-      forecastArr += extraArr;
-      currentRunRateMonthly += months > 0 ? extraArr / months : 0;
-      gapToTarget = targetArr - forecastArr;
-      requiredRunRateMonthly =
-        months > 0 ? (targetArr - currentArr) / months : 0;
     }
+    return actuals;
+  }, [actuals]);
 
-    if (key === "moreLeads" || key === "combo") {
-      const bumpFactor = key === "combo" ? 1.3 : 1.2;
-      const newLeads = leads * bumpFactor;
-
-      const newMqls = newLeads * leadToMql;
-      const newSqls = newMqls * mqlToSql;
-      const newOpps = newSqls * sqlToOpp;
-      const newProps = newOpps * oppToProp;
-      const newWins = newProps * propToWin;
-
-      const extraWins = Math.max(0, newWins - wins);
-      const extraArr = extraWins * acv;
-
-      forecastArr += extraArr;
-      currentRunRateMonthly += months > 0 ? extraArr / months : 0;
-      gapToTarget = targetArr - forecastArr;
-      requiredRunRateMonthly =
-        months > 0 ? (targetArr - currentArr) / months : 0;
-    }
-
-    return {
-      targetArr,
-      forecastArr,
-      gapToTarget,
-      currentRunRateMonthly,
-      requiredRunRateMonthly,
-    };
-  }
-
-  function handleScenarioClick(key: ScenarioKey) {
-    const metrics = computeScenarioMetrics(key);
-    setActiveScenario(key);
-    setScenarioMetrics(metrics);
-  }
-
-  const metricsToShow: CoreMetrics = scenarioMetrics || baseMetrics;
-
-  const formatCurrency = (value: number): string =>
-    new Intl.NumberFormat("en-IE", {
-      style: "currency",
-      currency: "EUR",
-      maximumFractionDigits: 0,
-    }).format(Math.round(value));
-
-  function getGapStatus(gap: number) {
-    if (Math.abs(gap) < 1) {
-      return { text: "On target", tone: "neutral" as const };
-    }
-    if (gap > 0) {
-      return { text: "Behind", tone: "bad" as const };
-    }
-    return { text: "Ahead", tone: "good" as const };
-  }
-
-  function getRunRateStatus(
-    current: number,
-    required: number
-  ): { text: string; tone: "good" | "warn" | "bad" | "neutral" } {
-    if (required <= 0) {
-      return { text: "Target reached", tone: "good" };
-    }
-    const ratio = current / required;
-    if (ratio >= 1.05) return { text: "Above target", tone: "good" };
-    if (ratio >= 0.9) return { text: "Close to target", tone: "warn" };
-    return { text: "Needs attention", tone: "bad" };
-  }
-
-  const gapStatus = getGapStatus(metricsToShow.gapToTarget);
-  const runStatus = getRunRateStatus(
-    metricsToShow.currentRunRateMonthly,
-    metricsToShow.requiredRunRateMonthly
+  const baseMetrics = computeBaseMetrics(
+    derivedActuals,
+    benchmarks,
+    includeNrr
   );
+
+  const scenarios = buildScenarios(derivedActuals, benchmarks);
+
+  const activeMetrics = useMemo(() => {
+    if (!activeScenario) return baseMetrics;
+
+    let scenarioActuals: Actuals = { ...derivedActuals };
+
+    if (activeScenario.applyType.kind === "increaseLeads") {
+      scenarioActuals = {
+        ...scenarioActuals,
+        leads: Math.round(
+          scenarioActuals.leads * activeScenario.applyType.multiplier
+        ),
+        newArr:
+          scenarioActuals.newArr * activeScenario.applyType.multiplier
+      };
+    } else if (activeScenario.applyType.kind === "increaseAcv") {
+      scenarioActuals = {
+        ...scenarioActuals,
+        acv: scenarioActuals.acv * activeScenario.applyType.multiplier,
+        newArr:
+          scenarioActuals.newArr * activeScenario.applyType.multiplier
+      };
+    } else if (activeScenario.applyType.kind === "fixStage") {
+      scenarioActuals = {
+        ...scenarioActuals,
+        newArr:
+          scenarioActuals.newArr + activeScenario.impactDeltaArr
+      };
+    }
+
+    return computeBaseMetrics(scenarioActuals, benchmarks, includeNrr);
+  }, [activeScenario, baseMetrics, derivedActuals, benchmarks, includeNrr]);
+
+  const handleActualNumberChange = (
+    field: keyof Actuals,
+    value: string
+  ) => {
+    const num = Number(value);
+    onActualsChange({
+      ...actuals,
+      [field]: isNaN(num) ? 0 : num
+    });
+  };
+
+  const handleTimeframeChange = (value: string) => {
+    const v = Number(value) as Timeframe;
+    onActualsChange({
+      ...actuals,
+      timeframeDays: v
+    });
+  };
+
+  const formatCurrency = (n: number) =>
+    `€${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
+  const statusForGap = (gap: number) => {
+    if (gap > 0) return { tone: "good" as const, label: "Ahead of target" };
+    if (gap < 0) return { tone: "bad" as const, label: "Behind target" };
+    return { tone: "neutral" as const, label: "Exactly on target" };
+  };
+
+  const gapStatus = statusForGap(activeMetrics.gapToTarget);
 
   return (
-    <div className="space-y-8 rounded-3xl bg-slate-950 px-6 pb-10 pt-6 text-slate-50">
-      {/* Funnel inputs */}
-      <section className="space-y-5 rounded-2xl border border-slate-800 bg-slate-900/60 px-5 py-5">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-base font-semibold tracking-tight text-slate-50">
-            Funnel and ARR performance for a recent period
-          </h2>
-          <p className="text-xs text-slate-400">
-            Enter how your funnel performed for a recent 30 / 60 / 90 day
-            period. This drives run rate, forecast ARR and gap to target.
-          </p>
-        </div>
-
-        {/* Funnel counts */}
-        <div className="grid gap-4 md:grid-cols-6">
-          {(
-            [
-              ["Leads", "leads"],
-              ["MQLs", "mqls"],
-              ["SQLs", "sqls"],
-              ["Opportunities", "opps"],
-              ["Proposals", "proposals"],
-              ["Wins", "wins"],
-            ] as const
-          ).map(([label, field]) => (
-            <div key={field} className="space-y-1">
-              <label className="block text-[11px] font-medium text-slate-300">
-                {label}
-              </label>
+    <section className="space-y-6">
+      {/* Funnel performance inputs */}
+      <div className="rounded-2xl bg-slateCard p-4 shadow-lg shadow-black/40">
+        <div className="mb-3 flex flex-col justify-between gap-3 md:flex-row md:items-center">
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight">
+              Funnel and ARR performance for a recent period
+            </h2>
+            <p className="mt-1 text-xs text-slate-300">
+              Drop in last month, quarter, or 90-day performance. The model
+              compares this against your benchmarks and ARR target.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-slate-300">
+              <span>Timeframe</span>
+              <select
+                value={actuals.timeframeDays}
+                onChange={(e) => handleTimeframeChange(e.target.value)}
+                className="rounded-md border border-slate-700 bg-slateBg px-2 py-1 text-xs"
+              >
+                <option value={30}>Last 30 days</option>
+                <option value={60}>Last 60 days</option>
+                <option value={90}>Last 90 days</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-xs text-slate-300">
               <input
-                type="number"
-                className="w-full rounded-xl border border-slate-700/80 bg-slate-900/80 px-3 py-2 text-sm text-slate-50 outline-none ring-0 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-                value={actuals[field]}
-                onChange={(e) =>
-                  setActuals((prev) => ({
-                    ...prev,
-                    [field]: Number(e.target.value) || 0,
-                  }))
-                }
-                min={0}
+                type="checkbox"
+                checked={includeNrr}
+                onChange={(e) => onIncludeNrrChange(e.target.checked)}
+                className="h-3 w-3"
               />
+              <span>Include Customer Success (NRR) in ARR path</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-6">
+          {/* Top-of-funnel row */}
+          <div className="space-y-2 rounded-xl bg-slateCardSoft p-3 text-xs lg:col-span-6">
+            <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+              Funnel volume
             </div>
-          ))}
+            <div className="grid gap-3 md:grid-cols-5">
+              <label className="flex flex-col gap-1">
+                <span className="text-slate-300">Leads</span>
+                <input
+                  type="number"
+                  className="rounded-md border border-slate-700 bg-slateBg px-2 py-1 text-sm"
+                  value={actuals.leads}
+                  onChange={(e) =>
+                    handleActualNumberChange("leads", e.target.value)
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-slate-300">MQLs</span>
+                <input
+                  type="number"
+                  className="rounded-md border border-slate-700 bg-slateBg px-2 py-1 text-sm"
+                  value={actuals.mqls}
+                  onChange={(e) =>
+                    handleActualNumberChange("mqls", e.target.value)
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-slate-300">SQLs</span>
+                <input
+                  type="number"
+                  className="rounded-md border border-slate-700 bg-slateBg px-2 py-1 text-sm"
+                  value={actuals.sqls}
+                  onChange={(e) =>
+                    handleActualNumberChange("sqls", e.target.value)
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-slate-300">Opportunities</span>
+                <input
+                  type="number"
+                  className="rounded-md border border-slate-700 bg-slateBg px-2 py-1 text-sm"
+                  value={actuals.opps}
+                  onChange={(e) =>
+                    handleActualNumberChange("opps", e.target.value)
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-slate-300">Proposals</span>
+                <input
+                  type="number"
+                  className="rounded-md border border-slate-700 bg-slateBg px-2 py-1 text-sm"
+                  value={actuals.proposals}
+                  onChange={(e) =>
+                    handleActualNumberChange("proposals", e.target.value)
+                  }
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Wins + ARR row */}
+          <div className="space-y-2 rounded-xl bg-slateCardSoft p-3 text-xs lg:col-span-4">
+            <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+              Closed won and ARR in this timeframe
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-slate-300">Wins</span>
+                <input
+                  type="number"
+                  className="rounded-md border border-slate-700 bg-slateBg px-2 py-1 text-sm"
+                  value={actuals.wins}
+                  onChange={(e) =>
+                    handleActualNumberChange("wins", e.target.value)
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-slate-300">
+                  New ARR in this timeframe (€)
+                </span>
+                <input
+                  type="number"
+                  className="rounded-md border border-slate-700 bg-slateBg px-2 py-1 text-sm"
+                  value={actuals.newArr}
+                  onChange={(e) =>
+                    handleActualNumberChange("newArr", e.target.value)
+                  }
+                />
+              </label>
+              <div className="flex flex-col gap-1">
+                <span className="text-slate-300">ACV (auto-calculated)</span>
+                <div className="flex h-8 items-center rounded-md border border-slate-700 bg-slateBg px-2 text-sm text-slate-200">
+                  {derivedActuals.wins > 0
+                    ? formatCurrency(derivedActuals.acv)
+                    : "—"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Conversion snapshot */}
+          <div className="space-y-2 rounded-xl bg-slateCardSoft p-3 text-xs lg:col-span-2">
+            <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+              Conversion snapshot
+            </div>
+            <ul className="space-y-1 text-[11px] text-slate-300">
+              {conversionBenchmarks(benchmarks).map((bm) => {
+                const from = derivedActuals[bm.fromKey] as number;
+                const to = derivedActuals[bm.toKey] as number;
+                const actualRate = from ? (to / from) * 100 : 0;
+                const targetRate = bm.targetRate * 100;
+                const diff = actualRate - targetRate;
+                const tone =
+                  diff >= 2 ? "text-emerald-300" : diff <= -2 ? "text-rose-300" : "text-slate-300";
+
+                return (
+                  <li key={bm.label} className="flex justify-between">
+                    <span>{bm.label}</span>
+                    <span className={tone}>
+                      {actualRate.toFixed(1)}% (target {targetRate.toFixed(
+                        1
+                      )}%)
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </div>
-
-        {/* Timeframe, ARR, ACV, CS toggle */}
-        <div className="grid gap-4 md:grid-cols-4 md:items-end">
-          <div className="space-y-1">
-            <label className="block text-[11px] font-medium text-slate-300">
-              Timeframe
-            </label>
-            <select
-              className="w-full rounded-xl border border-slate-700/80 bg-slate-900/80 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-              value={actuals.timeframeDays}
-              onChange={(e) =>
-                setActuals((prev) => ({
-                  ...prev,
-                  timeframeDays: Number(e.target.value) as TimeframeOption,
-                }))
-              }
-            >
-              <option value={30}>Last 30 days</option>
-              <option value={60}>Last 60 days</option>
-              <option value={90}>Last 90 days</option>
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="block text-[11px] font-medium text-slate-300">
-              New ARR in this timeframe (€)
-            </label>
-            <input
-              type="number"
-              className="w-full rounded-xl border border-slate-700/80 bg-slate-900/80 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-              value={actuals.newArr}
-              onChange={(e) =>
-                setActuals((prev) => ({
-                  ...prev,
-                  newArr: Number(e.target.value) || 0,
-                }))
-              }
-              min={0}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="block text-[11px] font-medium text-slate-300">
-              Average contract value (ACV, €)
-            </label>
-            <input
-              type="number"
-              className="w-full rounded-xl border border-slate-700/80 bg-slate-900/80 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-              value={actuals.acv}
-              onChange={(e) =>
-                setActuals((prev) => ({
-                  ...prev,
-                  acv: Number(e.target.value) || 0,
-                }))
-              }
-              min={0}
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              id="include-nrr"
-              type="checkbox"
-              checked={actuals.includeCustomerSuccess}
-              onChange={(e) =>
-                setActuals((prev) => ({
-                  ...prev,
-                  includeCustomerSuccess: e.target.checked,
-                }))
-              }
-              className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-sky-500 focus:ring-sky-500"
-            />
-            <label
-              htmlFor="include-nrr"
-              className="text-[11px] font-medium text-slate-300"
-            >
-              Include Customer Success (NRR) in ARR path
-            </label>
-          </div>
-        </div>
-      </section>
+      </div>
 
       {/* Hero metrics */}
-      <section className="space-y-4">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-base font-semibold tracking-tight text-slate-50">
-            Throughput and ARR path
-          </h2>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <HeroCard
+          title="Target ARR"
+          valueLabel="Goal you are working towards"
+          value={formatCurrency(baseMetrics.targetArr)}
+          description="Total ARR target for the selected timeframe."
+          statusLabel="Strategic north star"
+          statusTone="neutral"
+        />
+        <HeroCard
+          title="Forecast ARR"
+          valueLabel="Based on current run rate"
+          value={formatCurrency(activeMetrics.forecastArr)}
+          description="Where you are likely to land if this period's performance repeats."
+          statusLabel={gapStatus.label}
+          statusTone={gapStatus.tone}
+        />
+        <HeroCard
+          title="Gap to target ARR"
+          valueLabel="Ahead or behind target"
+          value={formatCurrency(Math.abs(activeMetrics.gapToTarget))}
+          description={
+            activeMetrics.gapToTarget >= 0
+              ? "Positive means you are ahead of target based on current trend."
+              : "Negative means you are behind target and need to unlock more throughput."
+          }
+          statusLabel={gapStatus.label}
+          statusTone={gapStatus.tone}
+        />
+        <HeroCard
+          title="Current run rate"
+          valueLabel="Average new ARR per month"
+          value={formatCurrency(activeMetrics.currentRunRateMonthly)}
+          description="New ARR contributed per month at current performance."
+          statusLabel="Based on recent period"
+          statusTone="neutral"
+        />
+        <HeroCard
+          title="Required run rate"
+          valueLabel="Average new ARR needed"
+          value={formatCurrency(activeMetrics.requiredRunRateMonthly)}
+          description="Monthly ARR needed to reach target from today."
+          statusLabel={
+            activeMetrics.requiredRunRateMonthly <=
+            activeMetrics.currentRunRateMonthly
+              ? "Current run rate is sufficient"
+              : "Run rate needs to increase"
+          }
+          statusTone={
+            activeMetrics.requiredRunRateMonthly <=
+            activeMetrics.currentRunRateMonthly
+              ? "good"
+              : "bad"
+          }
+        />
+      </div>
+
+      {/* Scenario engine */}
+      <div className="rounded-2xl bg-slateCard p-4 shadow-lg shadow-black/40">
+        <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight">
+              Priority scenarios to improve outcome
+            </h2>
+            <p className="mt-1 text-xs text-slate-300">
+              The model highlights the weakest stages versus target and shows
+              the ARR impact of fixing them. Click a scenario to see how the
+              5 hero metrics change.
+            </p>
+          </div>
           {activeScenario && (
-            <span className="text-[11px] text-slate-400">
-              Scenario applied:{" "}
-              {activeScenario === "stageFix"
-                ? "Fix weakest conversion stage"
-                : activeScenario === "moreLeads"
-                ? "Increase lead volume"
-                : "Combination of both levers"}
-            </span>
+            <button
+              type="button"
+              onClick={() => setActiveScenario(null)}
+              className="rounded-full border border-slate-600 px-3 py-1 text-xs text-slate-200 hover:bg-slate-700"
+            >
+              Reset to actuals
+            </button>
           )}
         </div>
 
-        <div className="grid gap-4 md:grid-cols-5">
-          <HeroCard
-            title="Target ARR"
-            value={formatCurrency(metricsToShow.targetArr)}
-            description="Goal you are working towards"
-            statusText="On track"
-            tone="neutral"
-          />
-
-          <HeroCard
-            title="Forecast ARR"
-            value={formatCurrency(metricsToShow.forecastArr)}
-            description="Based on current run rate"
-            statusText={
-              metricsToShow.forecastArr >= metricsToShow.targetArr
-                ? "Above"
-                : "Below"
-            }
-            tone={
-              metricsToShow.forecastArr >= metricsToShow.targetArr
-                ? "good"
-                : "warn"
-            }
-          />
-
-          <HeroCard
-            title="Gap to target ARR"
-            value={formatCurrency(Math.abs(metricsToShow.gapToTarget))}
-            description="Ahead or behind target"
-            statusText={gapStatus.text}
-            tone={gapStatus.tone}
-          />
-
-          <HeroCard
-            title="Current run rate"
-            value={formatCurrency(metricsToShow.currentRunRateMonthly)}
-            description="Average new ARR per month"
-            statusText={runStatus.text}
-            tone={runStatus.tone}
-          />
-
-          <HeroCard
-            title="Required run rate"
-            value={formatCurrency(
-              Math.max(metricsToShow.requiredRunRateMonthly, 0)
-            )}
-            description="Average new ARR needed"
-            statusText={
-              metricsToShow.requiredRunRateMonthly <= 0
-                ? "Target reached"
-                : "Stretch"
-            }
-            tone={
-              metricsToShow.requiredRunRateMonthly <= 0
-                ? "good"
-                : "warn"
-            }
-          />
-        </div>
-      </section>
-
-      {/* Priority scenarios */}
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold tracking-tight text-slate-50">
-          Priority scenarios to improve outcome
-        </h2>
-        <p className="text-xs text-slate-400">
-          These scenarios show how fixing bottlenecks or increasing volume would
-          impact your forecast and gap to target in this timeframe.
-        </p>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="flex h-full flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4 text-xs text-slate-200">
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-slate-50">
-                Fix weakest conversion stage
-              </h3>
-              <p className="text-[11px] text-slate-300">
-                Bring the lowest-performing funnel step closer to benchmark and
-                see the ARR unlocked without more spend at the top of the funnel.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleScenarioClick("stageFix")}
-              className="mt-3 inline-flex items-center justify-center rounded-full border border-sky-500/70 bg-sky-600/80 px-3 py-1 text-[11px] font-medium text-slate-50 shadow-sm hover:bg-sky-500"
-            >
-              Show scenario impact
-            </button>
+        {scenarios.length === 0 ? (
+          <p className="text-xs text-slate-400">
+            Add period data above to generate scenario suggestions.
+          </p>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {scenarios.map((scenario) => (
+              <div
+                key={scenario.id}
+                className={`flex flex-col justify-between rounded-xl border border-slate-700 bg-slateCardSoft p-3 text-xs transition ${
+                  activeScenario?.id === scenario.id
+                    ? "ring-2 ring-accentGreen"
+                    : ""
+                }`}
+              >
+                <div className="space-y-1">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    Scenario
+                  </div>
+                  <div className="text-sm font-semibold text-slate-100">
+                    {scenario.title}
+                  </div>
+                  <div className="text-xs text-slate-300">
+                    {scenario.subtitle}
+                  </div>
+                  <div className="mt-2 text-[11px] font-medium text-emerald-300">
+                    {scenario.impactLabel}
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setActiveScenario(scenario)}
+                    className="rounded-full bg-emerald-500 px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-emerald-400"
+                  >
+                    Show scenario impact
+                  </button>
+                  {activeScenario?.id === scenario.id && (
+                    <span className="text-[10px] uppercase tracking-wide text-emerald-300">
+                      Scenario active
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-
-          <div className="flex h-full flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4 text-xs text-slate-200">
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-slate-50">
-                Increase lead volume by 20%
-              </h3>
-              <p className="text-[11px] text-slate-300">
-                Keep funnel health constant and grow lead volume. See how much
-                incremental ARR this generates given current conversion rates.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleScenarioClick("moreLeads")}
-              className="mt-3 inline-flex items-center justify-center rounded-full border border-sky-500/70 bg-sky-600/80 px-3 py-1 text-[11px] font-medium text-slate-50 shadow-sm hover:bg-sky-500"
-            >
-              Show scenario impact
-            </button>
-          </div>
-
-          <div className="flex h-full flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4 text-xs text-slate-200">
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-slate-50">
-                Combo: fix stage + more leads
-              </h3>
-              <p className="text-[11px] text-slate-300">
-                Model a more aggressive growth path by improving the weakest
-                stage and increasing lead volume at the same time.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleScenarioClick("combo")}
-              className="mt-3 inline-flex items-center justify-center rounded-full border border-sky-500/70 bg-sky-600/80 px-3 py-1 text-[11px] font-medium text-slate-50 shadow-sm hover:bg-sky-500"
-            >
-              Show scenario impact
-            </button>
-          </div>
-        </div>
-      </section>
-    </div>
+        )}
+      </div>
+    </section>
   );
 }
