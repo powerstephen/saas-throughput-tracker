@@ -1,251 +1,284 @@
-// components/BenchmarksPanel.tsx
 "use client";
 
 import React, { useState } from "react";
-import type { Benchmarks } from "@/app/page";
+import clsx from "clsx";
 
-interface Props {
+export type Benchmarks = {
+  marketing: {
+    leadToMql: number; // decimal (0.25 = 25%)
+    mqlToSql: number;  // decimal
+  };
+  sales: {
+    sqlToOpp: number;  // decimal
+    oppToProp: number; // decimal
+    propToWin: number; // decimal
+  };
+  cs: {
+    monthlyChurnTarget: number; // decimal (0.01 = 1%)
+    expansionTarget: number;    // decimal (0.15 = 15% annual)
+    nrrTarget: number;          // multiple (1.2 = 120%)
+  };
+  revenue: {
+    currentArr: number;
+    arrTarget: number;
+    timeframeWeeks: number;
+    blendedCacTarget: number;
+  };
+};
+
+type BenchmarksPanelProps = {
   benchmarks: Benchmarks;
-  onChange: (b: Benchmarks) => void;
-}
+  onChange: (value: Benchmarks) => void;
+};
 
-const BenchmarksPanel: React.FC<Props> = ({ benchmarks, onChange }) => {
+export function BenchmarksPanel({ benchmarks, onChange }: BenchmarksPanelProps) {
   const [open, setOpen] = useState(true);
+
+  const handlePercentChange = (
+    section: keyof Benchmarks,
+    field: string,
+    raw: string
+  ) => {
+    const num = Number(raw);
+    const decimal = isNaN(num) ? 0 : num / 100;
+
+    const updated: Benchmarks = JSON.parse(JSON.stringify(benchmarks));
+    // @ts-expect-error dynamic index
+    updated[section][field] = decimal;
+    onChange(updated);
+  };
 
   const handleNumberChange = (
     section: keyof Benchmarks,
     field: string,
-    value: string
+    raw: string
   ) => {
-    const numeric = Number(value.replace(/[^0-9.]/g, "")) || 0;
+    const num = Number(raw);
+    const value = isNaN(num) ? 0 : num;
+
     const updated: Benchmarks = JSON.parse(JSON.stringify(benchmarks));
-    // @ts-expect-error dynamic access
-    updated[section][field] = numeric;
+    // @ts-expect-error dynamic index
+    updated[section][field] = value;
     onChange(updated);
   };
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4 shadow-sm md:px-6 md:py-5">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-medium text-slate-100">
-            Benchmarks & ARR target
-          </h2>
-          <p className="text-xs text-slate-400">
-            Targets for conversion rates, NRR and ARR horizon. These drive
-            diagnostics, colour-coding and scenario impact.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-medium text-slate-100 hover:bg-slate-800"
-        >
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={clsx(
+          "flex w-full items-center justify-between rounded-xl border px-3 py-2 text-xs font-medium",
+          "border-slate-700/80 bg-slate-900/80 text-slate-100 hover:border-sky-500 hover:text-sky-100"
+        )}
+      >
+        <span>Benchmark settings</span>
+        <span className="text-[11px] text-slate-400">
           {open ? "Hide" : "Show"}
-        </button>
-      </div>
+        </span>
+      </button>
 
-      {!open ? null : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {/* Marketing */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Marketing
-            </h3>
+      {open && (
+        <div className="space-y-4 text-xs text-slate-100">
+          {/* Marketing + Sales */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Marketing */}
+            <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3">
+              <h3 className="text-[11px] font-semibold tracking-tight text-slate-200">
+                Marketing benchmarks
+              </h3>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-[11px] text-slate-300">
+                    Leads → MQL (%)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-slate-700/80 bg-slate-900/80 px-2 py-1.5 text-[11px] text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                    value={Math.round(benchmarks.marketing.leadToMql * 100)}
+                    onChange={(e) =>
+                      handlePercentChange("marketing", "leadToMql", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] text-slate-300">
+                    MQL → SQL (%)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-slate-700/80 bg-slate-900/80 px-2 py-1.5 text-[11px] text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                    value={Math.round(benchmarks.marketing.mqlToSql * 100)}
+                    onChange={(e) =>
+                      handlePercentChange("marketing", "mqlToSql", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+            </div>
 
-            <label className="mb-3 block text-xs text-slate-300">
-              No. leads per period
-              <input
-                type="number"
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
-                value={benchmarks.marketing.leadsPerPeriod}
-                onChange={(e) =>
-                  handleNumberChange(
-                    "marketing",
-                    "leadsPerPeriod",
-                    e.target.value
-                  )
-                }
-              />
-            </label>
-
-            <label className="mb-3 block text-xs text-slate-300">
-              Leads → MQL target (%)
-              <input
-                type="number"
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
-                value={benchmarks.marketing.leadsToMql}
-                onChange={(e) =>
-                  handleNumberChange("marketing", "leadsToMql", e.target.value)
-                }
-              />
-            </label>
-
-            <label className="block text-xs text-slate-300">
-              MQL → SQL target (%)
-              <input
-                type="number"
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
-                value={benchmarks.marketing.mqlToSql}
-                onChange={(e) =>
-                  handleNumberChange("marketing", "mqlToSql", e.target.value)
-                }
-              />
-            </label>
+            {/* Sales */}
+            <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3">
+              <h3 className="text-[11px] font-semibold tracking-tight text-slate-200">
+                Sales benchmarks
+              </h3>
+              <div className="grid gap-3 md:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-[11px] text-slate-300">
+                    SQL → Opp (%)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-slate-700/80 bg-slate-900/80 px-2 py-1.5 text-[11px] text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                    value={Math.round(benchmarks.sales.sqlToOpp * 100)}
+                    onChange={(e) =>
+                      handlePercentChange("sales", "sqlToOpp", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] text-slate-300">
+                    Opp → Prop (%)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-slate-700/80 bg-slate-900/80 px-2 py-1.5 text-[11px] text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                    value={Math.round(benchmarks.sales.oppToProp * 100)}
+                    onChange={(e) =>
+                      handlePercentChange("sales", "oppToProp", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] text-slate-300">
+                    Prop → Win (%)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-slate-700/80 bg-slate-900/80 px-2 py-1.5 text-[11px] text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                    value={Math.round(benchmarks.sales.propToWin * 100)}
+                    onChange={(e) =>
+                      handlePercentChange("sales", "propToWin", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Sales */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Sales
-            </h3>
+          {/* CS + Revenue */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* CS */}
+            <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3">
+              <h3 className="text-[11px] font-semibold tracking-tight text-slate-200">
+                Customer Success benchmarks
+              </h3>
+              <div className="grid gap-3 md:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-[11px] text-slate-300">
+                    Monthly churn (%)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-slate-700/80 bg-slate-900/80 px-2 py-1.5 text-[11px] text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                    value={Math.round(benchmarks.cs.monthlyChurnTarget * 100)}
+                    onChange={(e) =>
+                      handlePercentChange("cs", "monthlyChurnTarget", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] text-slate-300">
+                    Expansion / year (%)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-slate-700/80 bg-slate-900/80 px-2 py-1.5 text-[11px] text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                    value={Math.round(benchmarks.cs.expansionTarget * 100)}
+                    onChange={(e) =>
+                      handlePercentChange("cs", "expansionTarget", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] text-slate-300">
+                    NRR target (%)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-slate-700/80 bg-slate-900/80 px-2 py-1.5 text-[11px] text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                    value={Math.round(benchmarks.cs.nrrTarget * 100)}
+                    onChange={(e) =>
+                      handleNumberChange("cs", "nrrTarget", String(Number(e.target.value) / 100))
+                    }
+                  />
+                </div>
+              </div>
+            </div>
 
-            <label className="mb-3 block text-xs text-slate-300">
-              SQL → Opp target (%)
-              <input
-                type="number"
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
-                value={benchmarks.sales.sqlToOpp}
-                onChange={(e) =>
-                  handleNumberChange("sales", "sqlToOpp", e.target.value)
-                }
-              />
-            </label>
-
-            <label className="mb-3 block text-xs text-slate-300">
-              Opp → Proposal target (%)
-              <input
-                type="number"
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
-                value={benchmarks.sales.oppToProposal}
-                onChange={(e) =>
-                  handleNumberChange(
-                    "sales",
-                    "oppToProposal",
-                    e.target.value
-                  )
-                }
-              />
-            </label>
-
-            <label className="block text-xs text-slate-300">
-              Proposal → Win target (%)
-              <input
-                type="number"
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
-                value={benchmarks.sales.proposalToWin}
-                onChange={(e) =>
-                  handleNumberChange(
-                    "sales",
-                    "proposalToWin",
-                    e.target.value
-                  )
-                }
-              />
-            </label>
-          </div>
-
-          {/* Customer Success */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Customer Success
-            </h3>
-
-            <label className="mb-3 block text-xs text-slate-300">
-              Monthly churn target (%)
-              <input
-                type="number"
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
-                value={benchmarks.customerSuccess.monthlyChurn}
-                onChange={(e) =>
-                  handleNumberChange(
-                    "customerSuccess",
-                    "monthlyChurn",
-                    e.target.value
-                  )
-                }
-              />
-            </label>
-
-            <label className="mb-3 block text-xs text-slate-300">
-              Expansion target (%)
-              <input
-                type="number"
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
-                value={benchmarks.customerSuccess.expansion}
-                onChange={(e) =>
-                  handleNumberChange(
-                    "customerSuccess",
-                    "expansion",
-                    e.target.value
-                  )
-                }
-              />
-            </label>
-
-            <label className="block text-xs text-slate-300">
-              NRR target (%)
-              <input
-                type="number"
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
-                value={benchmarks.customerSuccess.nrr}
-                onChange={(e) =>
-                  handleNumberChange("customerSuccess", "nrr", e.target.value)
-                }
-              />
-            </label>
-          </div>
-
-          {/* Revenue */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Revenue / ARR horizon
-            </h3>
-
-            <label className="mb-3 block text-xs text-slate-300">
-              Current ARR (€)
-              <input
-                type="number"
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
-                value={benchmarks.revenue.currentArr}
-                onChange={(e) =>
-                  handleNumberChange("revenue", "currentArr", e.target.value)
-                }
-              />
-            </label>
-
-            <label className="mb-3 block text-xs text-slate-300">
-              Target ARR (€)
-              <input
-                type="number"
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
-                value={benchmarks.revenue.targetArr}
-                onChange={(e) =>
-                  handleNumberChange("revenue", "targetArr", e.target.value)
-                }
-              />
-            </label>
-
-            <label className="block text-xs text-slate-300">
-              Timeframe to target (weeks)
-              <input
-                type="number"
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none focus:border-sky-500"
-                value={benchmarks.revenue.timeframeWeeks}
-                onChange={(e) =>
-                  handleNumberChange(
-                    "revenue",
-                    "timeframeWeeks",
-                    e.target.value
-                  )
-                }
-              />
-            </label>
+            {/* Revenue */}
+            <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3">
+              <h3 className="text-[11px] font-semibold tracking-tight text-slate-200">
+                Revenue & timeframe
+              </h3>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-[11px] text-slate-300">
+                    Current ARR (€)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-slate-700/80 bg-slate-900/80 px-2 py-1.5 text-[11px] text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                    value={benchmarks.revenue.currentArr}
+                    onChange={(e) =>
+                      handleNumberChange("revenue", "currentArr", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] text-slate-300">
+                    Target ARR (€)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-slate-700/80 bg-slate-900/80 px-2 py-1.5 text-[11px] text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                    value={benchmarks.revenue.arrTarget}
+                    onChange={(e) =>
+                      handleNumberChange("revenue", "arrTarget", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] text-slate-300">
+                    Time to target (weeks)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-slate-700/80 bg-slate-900/80 px-2 py-1.5 text-[11px] text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                    value={benchmarks.revenue.timeframeWeeks}
+                    onChange={(e) =>
+                      handleNumberChange("revenue", "timeframeWeeks", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] text-slate-300">
+                    Blended CAC target (€)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-slate-700/80 bg-slate-900/80 px-2 py-1.5 text-[11px] text-slate-50 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                    value={benchmarks.revenue.blendedCacTarget}
+                    onChange={(e) =>
+                      handleNumberChange("revenue", "blendedCacTarget", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
-};
-
-export default BenchmarksPanel;
+}
