@@ -1,10 +1,9 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import React from "react";
 
 export const metadata: Metadata = {
   title: "SaaS Throughput Lab",
-  description: "Funnel throughput and ARR scenario planner"
+  description: "Throughput-based ARR diagnostic and scenario planner"
 };
 
 export default function RootLayout({
@@ -13,8 +12,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" className="dark">
+      <body className="bg-slateBg text-slate-100 antialiased">
+        {children}
+      </body>
     </html>
   );
 }
