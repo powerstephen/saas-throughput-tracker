@@ -1,62 +1,77 @@
 "use client";
 
 import { useState } from "react";
-import MainDashboard from "@/components/MainDashboard";
-import { BenchmarksPanel, type Benchmarks } from "@/components/BenchmarksPanel";
+import MainDashboard, {
+  Actuals,
+  Benchmarks
+} from "@/components/MainDashboard";
+import BenchmarksPanel from "@/components/BenchmarksPanel";
 
 const defaultBenchmarks: Benchmarks = {
-  marketing: {
-    leadToMql: 0.25, // 25%
-    mqlToSql: 0.4,   // 40%
-  },
-  sales: {
-    sqlToOpp: 0.3,   // 30%
-    oppToProp: 0.5,  // 50%
-    propToWin: 0.25, // 25%
-  },
-  cs: {
-    monthlyChurnTarget: 0.01, // 1% churn / month
-    expansionTarget: 0.15,    // 15% annual expansion
-    nrrTarget: 1.20,          // 120% NRR
-  },
-  revenue: {
-    currentArr: 8_500_000, // €8.5m current ARR
-    arrTarget: 10_000_000, // €10m target ARR
-    timeframeWeeks: 52,    // ~12 months
-    blendedCacTarget: 25_000,
-  },
+  currentArr: 8500000,
+  targetArr: 10000000,
+  timeframeWeeks: 52,
+  leadToMql: 0.25,
+  mqlToSql: 0.35,
+  sqlToOpp: 0.35,
+  oppToProposal: 0.55,
+  proposalToWin: 0.25
+};
+
+const defaultActuals: Actuals = {
+  timeframeDays: 90,
+  leads: 1200,
+  mqls: 360,
+  sqls: 126,
+  opps: 63,
+  proposals: 35,
+  wins: 9,
+  newArr: 790000,
+  acv: 87777
 };
 
 export default function Page() {
   const [benchmarks, setBenchmarks] = useState<Benchmarks>(defaultBenchmarks);
+  const [actuals, setActuals] = useState<Actuals>(defaultActuals);
+  const [includeNrr, setIncludeNrr] = useState<boolean>(true);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-50">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8">
-        {/* Header */}
-        <header className="space-y-2">
-          <h1 className="text-xl font-semibold tracking-tight text-slate-50">
-            SaaS Throughput & ARR Path Calculator
-          </h1>
-          <p className="max-w-2xl text-xs text-slate-400">
-            Set realistic benchmarks, plug in recent funnel performance, and see your
-            ARR run rate, gap to target, and how much impact you get by fixing
-            bottlenecks or increasing lead volume.
-          </p>
+    <main className="min-h-screen px-4 py-8 md:px-8 lg:px-12">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              SaaS Throughput Lab
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm text-slate-300">
+              Diagnose where your SaaS funnel is leaking, see how far you are
+              from ARR targets, and model the impact of fixing bottlenecks or
+              pulling key growth levers.
+            </p>
+          </div>
+          <div className="rounded-xl bg-slateCard px-4 py-3 text-xs text-slate-300">
+            <p className="font-semibold text-slate-100">
+              EdgeTier interview edition
+            </p>
+            <p>
+              Use recent period data + target benchmarks to show where
+              throughput breaks and how to fix it.
+            </p>
+          </div>
         </header>
 
-        {/* Benchmarks config */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4">
-          <BenchmarksPanel
-            benchmarks={benchmarks}
-            onChange={setBenchmarks}
-          />
-        </section>
+        <BenchmarksPanel
+          benchmarks={benchmarks}
+          onChange={setBenchmarks}
+        />
 
-        {/* Main dashboard */}
-        <section>
-          <MainDashboard benchmarks={benchmarks} />
-        </section>
+        <MainDashboard
+          benchmarks={benchmarks}
+          actuals={actuals}
+          onActualsChange={setActuals}
+          includeNrr={includeNrr}
+          onIncludeNrrChange={setIncludeNrr}
+        />
       </div>
     </main>
   );
