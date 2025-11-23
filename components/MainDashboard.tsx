@@ -8,15 +8,13 @@ type PeriodLabel = "Last month" | "Last quarter" | "Last year" | "Custom";
 type Actuals = {
   periodLabel: PeriodLabel;
   periodWeeks: number;
-  marketing: {
+  funnel: {
     leads: number;
-    leadsToMql: number;
-    mqlToSql: number;
-  };
-  sales: {
-    sqlToOpp: number;
-    oppToProp: number;
-    propToWin: number;
+    mqls: number;
+    sqls: number;
+    opps: number;
+    proposals: number;
+    wins: number;
   };
   revenue: {
     newArrThisPeriod: number;
@@ -33,20 +31,47 @@ type FunnelStageKey =
 type FunnelStageMeta = {
   key: FunnelStageKey;
   label: string;
-  section: "marketing" | "sales";
+  fromLabel: string;
+  toLabel: string;
 };
 
 const STAGES: FunnelStageMeta[] = [
-  { key: "leadsToMql", label: "Leads → MQL", section: "marketing" },
-  { key: "mqlToSql", label: "MQL → SQL", section: "marketing" },
-  { key: "sqlToOpp", label: "SQL → Opp", section: "sales" },
-  { key: "oppToProp", label: "Opp → Proposal", section: "sales" },
-  { key: "propToWin", label: "Proposal → Win", section: "sales" },
+  { key: "leadsToMql", label: "Leads → MQL", fromLabel: "Leads", toLabel: "MQLs" },
+  { key: "mqlToSql", label: "MQL → SQL", fromLabel: "MQLs", toLabel: "SQLs" },
+  { key: "sqlToOpp", label: "SQL → Opp", fromLabel: "SQLs", toLabel: "Opportunities" },
+  { key: "oppToProp", label: "Opp → Proposal", fromLabel: "Opportunities", toLabel: "Proposals" },
+  { key: "propToWin", label: "Proposal → Win", fromLabel: "Proposals", toLabel: "Wins" },
 ];
 
 function safeDiv(a: number, b: number) {
   if (!b || Number.isNaN(a) || Number.isNaN(b)) return 0;
   return a / b;
+}
+
+type ActualRates = {
+  leadsToMql: number;
+  mqlToSql: number;
+  sqlToOpp: number;
+  oppToProp: number;
+  propToWin: number;
+};
+
+function deriveActualRates(actuals: Actuals): ActualRates {
+  const { leads, mqls, sqls, opps, proposals, wins } = actuals.funnel;
+
+  const leadsToMql = safeDiv(mqls * 100, leads);
+  const mqlToSql = safeDiv(sqls * 100, mqls);
+  const sqlToOpp = safeDiv(opps * 100, sqls);
+  const oppToProp = safeDiv(proposals * 100, opps);
+  const propToWin = safeDiv(wins * 100, proposals);
+
+  return {
+    leadsToMql,
+    mqlToSql,
+    sqlToOpp,
+    oppToProp,
+    propToWin,
+  };
 }
 
 export default function MainDashboard() {
@@ -76,22 +101,20 @@ export default function MainDashboard() {
   const [actuals, setActuals] = useState<Actuals>({
     periodLabel: "Last quarter",
     periodWeeks: 13,
-    marketing: {
+    funnel: {
       leads: 1200,
-      leadsToMql: 28,
-      mqlToSql: 35,
-    },
-    sales: {
-      sqlToOpp: 55,
-      oppToProp: 40,
-      propToWin: 20,
+      mqls: 360,
+      sqls: 126,
+      opps: 70,
+      proposals: 40,
+      wins: 10,
     },
     revenue: {
       newArrThisPeriod: 400000,
     },
   });
 
-  // ---------- Derived metrics ----------
+  const actualRates = deriveActualRates(actuals);
 
   const {
     requiredNewArrTotal,
@@ -106,7 +129,7 @@ export default function MainDashboard() {
     bottleneckActual,
     bottleneckTarget,
     stagesWithDiff,
-  } = computeBottleneck(benchmarks, actuals);
+  } = computeBottleneck(benchmarks, actualRates);
 
   const {
     winsPerLeadBenchmark,
@@ -114,7 +137,7 @@ export default function MainDashboard() {
     requiredLeadsTotal,
     requiredLeadsPerWeek,
     currentLeadsPerWeek,
-  } = computeLeadRequirements(benchmarks, actuals, requiredNewArrTotal);
+  } = computeLeadRequirements(benchmarks, actuals, actualRates, requiredNewArrTotal);
 
   return (
     <div className="space-y-6">
@@ -124,9 +147,8 @@ export default function MainDashboard() {
           SaaS Throughput and ARR Path
         </h1>
         <p className="text-sm text-slate-400">
-          Compare your current funnel performance to benchmarks, see your ARR
-          run rate versus target, and understand how many leads you need to hit
-          your goal.
+          Input a recent period of funnel performance, compare it to your own benchmarks,
+          and see the ARR path and lead volume needed to hit target.
         </p>
       </header>
 
@@ -146,9 +168,8 @@ export default function MainDashboard() {
               Funnel and ARR performance for a recent period
             </h2>
             <p className="text-xs text-slate-400">
-              Use a recent period such as last month or last quarter. These
-              numbers are compared to your benchmarks and used to estimate your
-              run rate.
+              Use a recent period such as last month or last quarter. Enter counts for each
+              stage. The calculator will derive conversion rates and compare them to your targets.
             </p>
           </div>
 
@@ -199,88 +220,102 @@ export default function MainDashboard() {
           </div>
         </div>
 
-        {/* Actuals inputs: Marketing + Sales + Revenue */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Marketing actuals */}
-          <div>
-            <h3 className="text-xs font-semibold text-slate-200 mb-2">
-              Marketing actuals
-            </h3>
-            <div className="space-y-2">
-              <Field
-                label="No. of leads"
-                value={actuals.marketing.leads}
-                onChange={(v) =>
-                  setActuals((prev) => ({
-                    ...prev,
-                    marketing: { ...prev.marketing, leads: v },
-                  }))
-                }
-              />
-              <Field
-                label="Leads → MQL (%)"
-                value={actuals.marketing.leadsToMql}
-                onChange={(v) =>
-                  setActuals((prev) => ({
-                    ...prev,
-                    marketing: { ...prev.marketing, leadsToMql: v },
-                  }))
-                }
-              />
-              <Field
-                label="MQL → SQL (%)"
-                value={actuals.marketing.mqlToSql}
-                onChange={(v) =>
-                  setActuals((prev) => ({
-                    ...prev,
-                    marketing: { ...prev.marketing, mqlToSql: v },
-                  }))
-                }
-              />
-            </div>
-          </div>
+        {/* Funnel row: Leads → Wins, counts on top, actual vs target % under each */}
+        <div className="overflow-x-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 min-w-[600px]">
+            {/* Leads */}
+            <FunnelBox
+              title="Leads"
+              count={actuals.funnel.leads}
+              onChange={(v) =>
+                setActuals((prev) => ({
+                  ...prev,
+                  funnel: { ...prev.funnel, leads: v },
+                }))
+              }
+              showRates={false}
+            />
 
-          {/* Sales actuals */}
-          <div>
-            <h3 className="text-xs font-semibold text-slate-200 mb-2">
-              Sales actuals
-            </h3>
-            <div className="space-y-2">
-              <Field
-                label="SQL → Opp (%)"
-                value={actuals.sales.sqlToOpp}
-                onChange={(v) =>
-                  setActuals((prev) => ({
-                    ...prev,
-                    sales: { ...prev.sales, sqlToOpp: v },
-                  }))
-                }
-              />
-              <Field
-                label="Opp → Proposal (%)"
-                value={actuals.sales.oppToProp}
-                onChange={(v) =>
-                  setActuals((prev) => ({
-                    ...prev,
-                    sales: { ...prev.sales, oppToProp: v },
-                  }))
-                }
-              />
-              <Field
-                label="Proposal → Win (%)"
-                value={actuals.sales.propToWin}
-                onChange={(v) =>
-                  setActuals((prev) => ({
-                    ...prev,
-                    sales: { ...prev.sales, propToWin: v },
-                  }))
-                }
-              />
-            </div>
-          </div>
+            {/* MQLs */}
+            <FunnelBox
+              title="MQLs"
+              count={actuals.funnel.mqls}
+              onChange={(v) =>
+                setActuals((prev) => ({
+                  ...prev,
+                  funnel: { ...prev.funnel, mqls: v },
+                }))
+              }
+              actualRate={actualRates.leadsToMql}
+              targetRate={benchmarks.marketing.leadsToMql}
+              rateLabel="Leads → MQL"
+            />
 
-          {/* Revenue actuals */}
-          <div>
+            {/* SQLs */}
+            <FunnelBox
+              title="SQLs"
+              count={actuals.funnel.sqls}
+              onChange={(v) =>
+                setActuals((prev) => ({
+                  ...prev,
+                  funnel: { ...prev.funnel, sqls: v },
+                }))
+              }
+              actualRate={actualRates.mqlToSql}
+              targetRate={benchmarks.marketing.mqlToSql}
+              rateLabel="MQL → SQL"
+            />
+
+            {/* Opps */}
+            <FunnelBox
+              title="Opportunities"
+              count={actuals.funnel.opps}
+              onChange={(v) =>
+                setActuals((prev) => ({
+                  ...prev,
+                  funnel: { ...prev.funnel, opps: v },
+                }))
+              }
+              actualRate={actualRates.sqlToOpp}
+              targetRate={benchmarks.sales.sqlToOpp}
+              rateLabel="SQL → Opp"
+            />
+
+            {/* Proposals */}
+            <FunnelBox
+              title="Proposals"
+              count={actuals.funnel.proposals}
+              onChange={(v) =>
+                setActuals((prev) => ({
+                  ...prev,
+                  funnel: { ...prev.funnel, proposals: v },
+                }))
+              }
+              actualRate={actualRates.oppToProp}
+              targetRate={benchmarks.sales.oppToProp}
+              rateLabel="Opp → Proposal"
+            />
+
+            {/* Wins */}
+            <FunnelBox
+              title="Wins"
+              count={actuals.funnel.wins}
+              onChange={(v) =>
+                setActuals((prev) => ({
+                  ...prev,
+                  funnel: { ...prev.funnel, wins: v },
+                }))
+              }
+              actualRate={actualRates.propToWin}
+              targetRate={benchmarks.sales.propToWin}
+              rateLabel="Proposal → Win"
+            />
+          </div>
+        </div>
+
+        {/* New ARR panel */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+          <div className="md:col-span-1">
             <h3 className="text-xs font-semibold text-slate-200 mb-2">
               New ARR for this period
             </h3>
@@ -520,6 +555,56 @@ function ReadOnlyField({ label, value }: ReadOnlyFieldProps) {
   );
 }
 
+type FunnelBoxProps = {
+  title: string;
+  count: number;
+  onChange: (v: number) => void;
+  showRates?: boolean;
+  actualRate?: number;
+  targetRate?: number;
+  rateLabel?: string;
+};
+
+function FunnelBox({
+  title,
+  count,
+  onChange,
+  showRates = true,
+  actualRate,
+  targetRate,
+  rateLabel,
+}: FunnelBoxProps) {
+  return (
+    <div className="border border-slate-700 rounded-lg p-3 bg-slate-950/60">
+      <div className="text-xs font-semibold text-slate-100 mb-1">{title}</div>
+      <input
+        type="number"
+        inputMode="decimal"
+        value={Number.isNaN(count) ? "" : count}
+        onChange={(e) => onChange(Number(e.target.value) || 0)}
+        className="w-full bg-slate-900 border border-slate-700 rounded-md px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+      />
+      {showRates && rateLabel && actualRate !== undefined && targetRate !== undefined && (
+        <div className="mt-2 text-[10px] space-y-0.5">
+          <div className="text-slate-400">{rateLabel}</div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Actual</span>
+            <span className="font-medium text-slate-100">
+              {actualRate.toFixed(1)}%
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Target</span>
+            <span className="font-medium text-slate-100">
+              {targetRate.toFixed(1)}%
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------- Calculation helpers ----------
 
 function computeArrRunRate(
@@ -558,7 +643,7 @@ function computeArrRunRate(
   };
 }
 
-function computeBottleneck(benchmarks: Benchmarks, actuals: Actuals) {
+function computeBottleneck(benchmarks: Benchmarks, actualRates: ActualRates) {
   const stageDiffs: {
     key: FunnelStageKey;
     label: string;
@@ -571,25 +656,27 @@ function computeBottleneck(benchmarks: Benchmarks, actuals: Actuals) {
     let actualRate = 0;
     let targetRate = 0;
 
-    if (stage.section === "marketing") {
-      if (stage.key === "leadsToMql") {
-        actualRate = actuals.marketing.leadsToMql;
+    switch (stage.key) {
+      case "leadsToMql":
+        actualRate = actualRates.leadsToMql;
         targetRate = benchmarks.marketing.leadsToMql;
-      } else if (stage.key === "mqlToSql") {
-        actualRate = actuals.marketing.mqlToSql;
+        break;
+      case "mqlToSql":
+        actualRate = actualRates.mqlToSql;
         targetRate = benchmarks.marketing.mqlToSql;
-      }
-    } else {
-      if (stage.key === "sqlToOpp") {
-        actualRate = actuals.sales.sqlToOpp;
+        break;
+      case "sqlToOpp":
+        actualRate = actualRates.sqlToOpp;
         targetRate = benchmarks.sales.sqlToOpp;
-      } else if (stage.key === "oppToProp") {
-        actualRate = actuals.sales.oppToProp;
+        break;
+      case "oppToProp":
+        actualRate = actualRates.oppToProp;
         targetRate = benchmarks.sales.oppToProp;
-      } else if (stage.key === "propToWin") {
-        actualRate = actuals.sales.propToWin;
+        break;
+      case "propToWin":
+        actualRate = actualRates.propToWin;
         targetRate = benchmarks.sales.propToWin;
-      }
+        break;
     }
 
     const diff = actualRate - targetRate;
@@ -620,9 +707,10 @@ function computeBottleneck(benchmarks: Benchmarks, actuals: Actuals) {
 function computeLeadRequirements(
   benchmarks: Benchmarks,
   actuals: Actuals,
+  actualRates: ActualRates,
   requiredNewArrTotal: number
 ) {
-  // Use funnel chain to estimate wins per lead at benchmark level
+  // Benchmark chain
   const chainBenchmark =
     (benchmarks.marketing.leadsToMql / 100 || 0) *
     (benchmarks.marketing.mqlToSql / 100 || 0) *
@@ -632,20 +720,20 @@ function computeLeadRequirements(
 
   const winsPerLeadBenchmark = chainBenchmark;
 
-  // Estimate current wins per lead using actual funnel
+  // Actual chain from derived rates
   const chainActual =
-    (actuals.marketing.leadsToMql / 100 || 0) *
-    (actuals.marketing.mqlToSql / 100 || 0) *
-    (actuals.sales.sqlToOpp / 100 || 0) *
-    (actuals.sales.oppToProp / 100 || 0) *
-    (actuals.sales.propToWin / 100 || 0);
+    (actualRates.leadsToMql / 100 || 0) *
+    (actualRates.mqlToSql / 100 || 0) *
+    (actualRates.sqlToOpp / 100 || 0) *
+    (actualRates.oppToProp / 100 || 0) *
+    (actualRates.propToWin / 100 || 0);
 
   const estimatedWinsPerLeadActual = chainActual;
 
   // Estimate average deal size from actuals if possible
   let avgDealSize = 0;
   const estimatedWinsThisPeriod =
-    actuals.marketing.leads * estimatedWinsPerLeadActual;
+    actuals.funnel.leads * estimatedWinsPerLeadActual;
 
   if (estimatedWinsThisPeriod > 0) {
     avgDealSize = safeDiv(
@@ -667,7 +755,7 @@ function computeLeadRequirements(
   }
 
   const currentLeadsPerWeek = safeDiv(
-    actuals.marketing.leads,
+    actuals.funnel.leads,
     actuals.periodWeeks || 1
   );
 
