@@ -352,7 +352,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     selectedMetrics.currentRunRate >=
     baseMetrics.requiredRunRate
       ? "good"
-      : "warn";
+      : "warning";
 
   const gapAbs = Math.abs(
     selectedMetrics.gapToTarget
@@ -616,7 +616,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             selectedMetrics.forecastArr >=
             benchmarks.targetArr
               ? "good"
-              : "warn"
+              : "warning"
           }
         />
         <HeroCard
