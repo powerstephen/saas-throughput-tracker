@@ -377,6 +377,12 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
       ? boostLeadsPreview.forecastArr - baseMetrics.forecastArr
       : 0;
 
+  // ⭐ Fallback lever when there is no weak stage
+  const fallbackLever: ScenarioId =
+    liftAcvArrUplift >= boostLeadsArrUplift
+      ? "lift-acv"
+      : "boost-leads";
+
   return (
     <div className="space-y-6">
       {/* Current Funnel Velocity */}
@@ -492,7 +498,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             />
           </div>
 
-          {/* Bottom row: New ARR, ACV, NRR toggle, Current NRR */}
+          {/* Bottom row: New ARR, ACV, NRR toggle, Current NRR – all equal width */}
           <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
               New ARR in this timeframe (€)
@@ -523,7 +529,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             />
           </div>
 
-          <div className="md:col-span-2">
+          <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
               Include NRR in ARR path
             </label>
@@ -548,7 +554,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </select>
           </div>
 
-          <div className="md:col-span-2">
+          <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
               Current NRR (%)
             </label>
@@ -634,13 +640,13 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          {/* Scenario 1: Fix weakest stage */}
+          {/* Scenario 1: Fix weakest stage / best upside lever */}
           <div className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-slate-100">
                 {weakestStage
                   ? `Fix weakest stage (${weakestStage.label})`
-                  : "Fix weakest stage"}
+                  : "Test biggest upside lever"}
               </h3>
               <p className="text-xs text-slate-400">
                 {weakestStage ? (
@@ -661,15 +667,35 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
                     )}
                   </>
                 ) : (
-                  // 🔴 CHANGED COPY HERE ONLY
-                  "All main stages are at or above target. Use the ACV or Lead Volume scenarios below to model additional upside."
+                  <>
+                    All main stages are at or above target. We’ll
+                    automatically test the biggest upside lever –
+                    either a{" "}
+                    <span className="font-semibold">
+                      10% ACV lift
+                    </span>{" "}
+                    or{" "}
+                    <span className="font-semibold">
+                      20% lead volume increase
+                    </span>
+                    , depending on which adds more ARR.
+                  </>
                 )}
               </p>
             </div>
             <button
-              onClick={() => applyScenario("weakest-stage")}
+              onClick={() =>
+                weakestStage
+                  ? applyScenario("weakest-stage")
+                  : applyScenario(fallbackLever)
+              }
               className={`mt-3 inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                activeScenario === "weakest-stage"
+                activeScenario === "weakest-stage" &&
+                weakestStage
+                  ? "bg-sky-500 text-slate-950"
+                  : !weakestStage &&
+                    (activeScenario === "lift-acv" ||
+                      activeScenario === "boost-leads")
                   ? "bg-sky-500 text-slate-950"
                   : "bg-slate-800 text-slate-100 hover:bg-slate-700"
               }`}
@@ -760,7 +786,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </p>
             <p className="mt-1 text-slate-400">
               Forecast ARR vs target based on current funnel
-              velocity{actuals.includeCustomerSuccess
+              velocity
+              {actuals.includeCustomerSuccess
                 ? " and NRR path."
                 : "."}
             </p>
