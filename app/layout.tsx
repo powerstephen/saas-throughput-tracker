@@ -1,11 +1,16 @@
-/** app/layout.tsx */
 import "./globals.css";
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "SaaS Throughput & ARR Tracker",
+  title: "SaaS Throughput Tracker",
   description:
-    "Benchmark your SaaS funnel, see your ARR path, and model high-impact scenarios to hit target.",
+    "Diagnose funnel health, model scenarios, and align marketing, sales and CS with ARR targets.",
+  icons: {
+    icon: "/lightning.svg",
+  },
 };
 
 export default function RootLayout({
@@ -15,11 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-navyBg text-slate-100 antialiased">
-        <div className="mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
-          {children}
-        </div>
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }
