@@ -389,10 +389,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
       <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg shadow-slate-950/40">
         <div className="mb-4 flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-semibold text-slate-100">
+            <h2 className="text-lg font-semibold text-slate-100">
               Current Funnel Velocity (Last 30/60/90 Days)
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-sm text-slate-400">
               Plug in a recent 30 / 60 / 90-day period. The model will
               project this performance against your ARR target.
             </p>
@@ -400,7 +400,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
           <div className="flex items-center gap-2">
             <label className="text-xs text-slate-300">Timeframe</label>
             <select
-              className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs"
+              className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-sm"
               value={actuals.timeframe}
               onChange={(e) =>
                 handleActualChange("timeframe", e.target.value)
@@ -413,6 +413,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
           </div>
         </div>
 
+        {/* Top row: 6 funnel count inputs */}
         <div className="grid gap-4 md:grid-cols-6">
           <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
@@ -420,7 +421,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.leads}
               onChange={(e) =>
                 handleActualChange("leads", e.target.value)
@@ -434,7 +435,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.mqls}
               onChange={(e) =>
                 handleActualChange("mqls", e.target.value)
@@ -448,7 +449,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.sqls}
               onChange={(e) =>
                 handleActualChange("sqls", e.target.value)
@@ -462,7 +463,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.opps}
               onChange={(e) =>
                 handleActualChange("opps", e.target.value)
@@ -476,7 +477,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.proposals}
               onChange={(e) =>
                 handleActualChange("proposals", e.target.value)
@@ -490,22 +491,24 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.wins}
               onChange={(e) =>
                 handleActualChange("wins", e.target.value)
               }
             />
           </div>
+        </div>
 
-          {/* Bottom row: New ARR, ACV, NRR toggle, Current NRR – all equal width */}
-          <div className="md:col-span-1">
+        {/* Bottom row: 4 equal-width boxes spanning full width */}
+        <div className="mt-4 grid gap-4 md:grid-cols-4">
+          <div>
             <label className="block text-xs text-slate-300">
               New ARR in this timeframe (€)
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.newArr}
               onChange={(e) =>
                 handleActualChange("newArr", e.target.value)
@@ -513,13 +516,13 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             />
           </div>
 
-          <div className="md:col-span-1">
+          <div>
             <label className="block text-xs text-slate-300">
               Average Contract Value (€)
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-200"
               value={
                 actuals.wins > 0
                   ? Math.round(actuals.newArr / actuals.wins)
@@ -529,12 +532,12 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             />
           </div>
 
-          <div className="md:col-span-1">
+          <div>
             <label className="block text-xs text-slate-300">
               Include NRR in ARR path
             </label>
             <select
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={
                 actuals.includeCustomerSuccess ? "true" : "false"
               }
@@ -554,13 +557,13 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </select>
           </div>
 
-          <div className="md:col-span-1">
+          <div>
             <label className="block text-xs text-slate-300">
               Current NRR (%)
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={Math.round(benchmarks.nrr * 100)}
               readOnly
             />
