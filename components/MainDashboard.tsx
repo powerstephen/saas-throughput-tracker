@@ -187,7 +187,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
   }, [conversionRates, benchmarks]);
 
   // 🔁 Shared scenario calculator used for both previews and applying scenarios
-  const computeScenarioMetrics = (scenario: ScenarioId): ScenarioMetrics | null => {
+  const computeScenarioMetrics = (
+    scenario: ScenarioId
+  ): ScenarioMetrics | null => {
     const weeksInTimeframe = benchmarks.timeframeWeeks;
     const monthsInTargetPeriod = weeksInTimeframe / 4.345;
     const yearsInTargetPeriod = weeksInTimeframe / 52;
@@ -659,7 +661,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
                     )}
                   </>
                 ) : (
-                  "All stages are at or above target. The model will still simulate the impact of lifting a mid-funnel stage."
+                  // 🔴 CHANGED COPY HERE ONLY
+                  "All main stages are at or above target. Use the ACV or Lead Volume scenarios below to model additional upside."
                 )}
               </p>
             </div>
