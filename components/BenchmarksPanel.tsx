@@ -86,7 +86,7 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
           </label>
 
           <label className="mt-3 block text-xs text-slate-400">
-            Current ARR (existing recurring revenue)
+            Current ARR
             <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
               <span className="text-slate-500">€</span>
               <input
