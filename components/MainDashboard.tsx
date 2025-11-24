@@ -73,13 +73,14 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
     [actuals.timeframe]
   );
 
+  // ✅ Use benchmarks.acv (your current Benchmarks type) as fallback ACV
   const baseAcv = useMemo(() => {
     if (actuals.wins > 0) {
       const acv = actuals.newArr / actuals.wins;
       return clampNumber(acv);
     }
-    return benchmarks.acvTarget;
-  }, [actuals.newArr, actuals.wins, benchmarks.acvTarget]);
+    return benchmarks.acv;
+  }, [actuals.newArr, actuals.wins, benchmarks.acv]);
 
   const baseMetrics = useMemo(() => {
     const currentRunRate =
@@ -89,7 +90,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
     const monthsInTargetPeriod = weeksInTimeframe / 4.345;
 
     const forecastArr = currentRunRate * monthsInTargetPeriod;
-
     const gapToTarget = forecastArr - benchmarks.targetArr;
 
     const requiredRunRate =
@@ -111,7 +111,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
     const leadToMql = actuals.leads > 0 ? actuals.mqls / actuals.leads : 0;
     const mqlToSql = actuals.mqls > 0 ? actuals.sqls / actuals.mqls : 0;
     const sqlToOpp = actuals.sqls > 0 ? actuals.opps / actuals.sqls : 0;
-    const oppToProposal = actuals.opps > 0 ? actuals.proposals / actuals.opps : 0;
+    const oppToProposal =
+      actuals.opps > 0 ? actuals.proposals / actuals.opps : 0;
     const proposalToWin =
       actuals.proposals > 0 ? actuals.wins / actuals.proposals : 0;
 
@@ -220,8 +221,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
       const newArr = actuals.wins * improvedAcv;
       const currentRunRate =
         monthsInPeriod > 0 ? newArr / monthsInPeriod : 0;
-      const weeksInTimeframe = benchmarks.timeframeWeeks;
-      const monthsInTargetPeriod = weeksInTimeframe / 4.345;
       const forecastArr = currentRunRate * monthsInTargetPeriod;
       const gapToTarget = forecastArr - benchmarks.targetArr;
 
@@ -291,7 +290,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
   const gapStatusTone =
     selectedMetrics.gapToTarget >= 0 ? "good" : "bad";
 
-  // Compare current run rate against the required run rate
   const runRateStatusTone =
     selectedMetrics.currentRunRate >= baseMetrics.requiredRunRate
       ? "good"
@@ -331,7 +329,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
 
         <div className="grid gap-4 md:grid-cols-6">
           <div className="md:col-span-1">
-            <label className="block text-xs text-slate-300">Leads</label>
+            <label className="block text-xs text-slate-300">
+              Leads
+            </label>
             <input
               type="number"
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
@@ -343,7 +343,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
           </div>
 
           <div className="md:col-span-1">
-            <label className="block text-xs text-slate-300">MQLs</label>
+            <label className="block text-xs text-slate-300">
+              MQLs
+            </label>
             <input
               type="number"
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
@@ -355,7 +357,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
           </div>
 
           <div className="md:col-span-1">
-            <label className="block text-xs text-slate-300">SQLs</label>
+            <label className="block text-xs text-slate-300">
+              SQLs
+            </label>
             <input
               type="number"
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
@@ -381,7 +385,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
           </div>
 
           <div className="md:col-span-1">
-            <label className="block text-xs text-slate-300">Proposals</label>
+            <label className="block text-xs text-slate-300">
+              Proposals
+            </label>
             <input
               type="number"
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
@@ -393,7 +399,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
           </div>
 
           <div className="md:col-span-1">
-            <label className="block text-xs text-slate-300">Wins</label>
+            <label className="block text-xs text-slate-300">
+              Wins
+            </label>
             <input
               type="number"
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
@@ -424,14 +432,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </label>
             <select
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-              value={
-                actuals.includeCustomerSuccess ? "true" : "false"
-              }
+              value={actuals.includeCustomerSuccess ? "true" : "false"}
               onChange={(e) =>
-                handleActualChange(
-                  "includeCustomerSuccess",
-                  e.target.value
-                )
+                handleActualChange("includeCustomerSuccess", e.target.value)
               }
             >
               <option value="true">
@@ -515,9 +518,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
           value={formatCurrency(selectedMetrics.currentRunRate)}
           subtitle="Average new ARR per month"
           statusLabel={
-            runRateStatusTone === "good"
-              ? "On track"
-              : "Needs lift"
+            runRateStatusTone === "good" ? "On track" : "Needs lift"
           }
           statusTone={runRateStatusTone}
         />
@@ -538,8 +539,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
               Priority scenarios to improve outcome
             </h2>
             <p className="text-xs text-slate-400">
-              The model flags underperforming stages and shows what
-              happens if you fix them or pull key levers.
+              The model flags underperforming stages and shows what happens if
+              you fix them or pull key levers.
             </p>
           </div>
           {activeScenario && (
@@ -564,12 +565,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
               <p className="text-xs text-slate-400">
                 {weakestStage ? (
                   <>
-                    {weakestStage.label} is currently lagging
-                    target. Actual{" "}
-                    {formatPercent(weakestStage.actual)} vs
-                    target {formatPercent(weakestStage.target)}.
-                    See the impact of bringing it back to
-                    benchmark.
+                    {weakestStage.label} is currently lagging target. Actual{" "}
+                    {formatPercent(weakestStage.actual)} vs target{" "}
+                    {formatPercent(weakestStage.target)}. See the impact of
+                    bringing it back to benchmark.
                   </>
                 ) : (
                   "All stages are at or above target. The model will still simulate the impact of lifting a mid-funnel stage."
@@ -595,9 +594,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
                 Increase ACV by 10%
               </h3>
               <p className="text-xs text-slate-400">
-                Current ACV is around {formatCurrency(baseAcv)}.
-                See what happens if you improve pricing, discount
-                discipline, or packaging to lift ACV by 10%.
+                Current ACV is around {formatCurrency(baseAcv)}. See what
+                happens if you improve pricing, discount discipline, or
+                packaging to lift ACV by 10%.
               </p>
             </div>
             <button
@@ -619,9 +618,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
                 Increase lead volume by 20%
               </h3>
               <p className="text-xs text-slate-400">
-                Model the impact of a 20% uplift in lead volume at
-                current conversion rates. Useful for testing paid
-                budget or new channel plays.
+                Model the impact of a 20% uplift in lead volume at current
+                conversion rates. Useful for testing paid budget or new channel
+                plays.
               </p>
             </div>
             <button
