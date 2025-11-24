@@ -343,8 +343,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-6">
-          <div className="md:col-span-1">
+        {/* switched to 12-column grid so we can do 6x2 + 4x3 */}
+        <div className="grid gap-4 md:grid-cols-12">
+          {/* top row: 6 inputs, each col-span-2 */}
+          <div className="md:col-span-2">
             <label className="block text-xs text-slate-300">
               Leads
             </label>
@@ -358,7 +360,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             />
           </div>
 
-          <div className="md:col-span-1">
+          <div className="md:col-span-2">
             <label className="block text-xs text-slate-300">
               MQLs
             </label>
@@ -372,7 +374,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             />
           </div>
 
-          <div className="md:col-span-1">
+          <div className="md:col-span-2">
             <label className="block text-xs text-slate-300">
               SQLs
             </label>
@@ -391,7 +393,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             )}
           </div>
 
-          <div className="md:col-span-1">
+          <div className="md:col-span-2">
             <label className="block text-xs text-slate-300">
               Opportunities
             </label>
@@ -410,7 +412,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             )}
           </div>
 
-          <div className="md:col-span-1">
+          <div className="md:col-span-2">
             <label className="block text-xs text-slate-300">
               Proposals
             </label>
@@ -429,7 +431,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             )}
           </div>
 
-          <div className="md:col-span-1">
+          <div className="md:col-span-2">
             <label className="block text-xs text-slate-300">
               Wins
             </label>
@@ -448,8 +450,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             )}
           </div>
 
-          {/* Bottom row: New ARR, ACV, CS toggle, NRR */}
-          <div className="md:col-span-2">
+          {/* bottom row: 4 equal boxes, each col-span-3 */}
+          <div className="md:col-span-3">
             <label className="block text-xs text-slate-300">
               New ARR in this timeframe (€)
             </label>
@@ -463,7 +465,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             />
           </div>
 
-          <div className="md:col-span-2">
+          <div className="md:col-span-3">
             <label className="block text-xs text-slate-300">
               Average Contract Value (ACV)
             </label>
@@ -478,9 +480,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </div>
           </div>
 
-          <div className="md:col-span-1">
+          <div className="md:col-span-3">
             <label className="block text-xs text-slate-300">
-              Include Customer Success (NRR) in ARR path
+              Include NRR in ARR path
             </label>
             <select
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
@@ -501,14 +503,14 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </select>
           </div>
 
-          <div className="md:col-span-1">
+          <div className="md:col-span-3">
             <label className="block text-xs text-slate-300">
               Current NRR (%)
             </label>
             <input
               type="number"
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-              value={actuals.nrr * 100}
+              value={Number((actuals.nrr * 100).toFixed(0))}
               onChange={(e) =>
                 setActuals((prev) => ({
                   ...prev,
