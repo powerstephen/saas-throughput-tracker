@@ -71,7 +71,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
     [actuals.timeframe]
   );
 
-  // Base ACV = ARR / Wins, with fallback to benchmark ACV
   const baseAcv = useMemo(() => {
     if (actuals.wins > 0) {
       const acv = actuals.newArr / actuals.wins;
@@ -219,6 +218,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
       const newArr = actuals.wins * improvedAcv;
       const currentRunRate =
         monthsInPeriod > 0 ? newArr / monthsInPeriod : 0;
+      const weeksInTimeframe = benchmarks.timeframeWeeks;
+      const monthsInTargetPeriod = weeksInTimeframe / 4.345;
       const forecastArr = currentRunRate * monthsInTargetPeriod;
       const gapToTarget = forecastArr - benchmarks.targetArr;
 
@@ -317,10 +318,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
       <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg shadow-slate-950/40">
         <div className="mb-4 flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-semibold text-slate-100">
+            <h2 className="text-lg font-semibold text-slate-100">
               Funnel and ARR performance for a recent period
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-sm text-slate-400">
               Plug in a recent 30 / 60 / 90-day period. The model will project
               this performance against your ARR target.
             </p>
@@ -343,16 +344,16 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
           </div>
         </div>
 
-        {/* switched to 12-column grid so we can do 6x2 + 4x3 */}
+        {/* 12-column grid to line up 6+4 nicely */}
         <div className="grid gap-4 md:grid-cols-12">
-          {/* top row: 6 inputs, each col-span-2 */}
+          {/* top row: 6 inputs, col-span-2 each */}
           <div className="md:col-span-2">
             <label className="block text-xs text-slate-300">
               Leads
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.leads}
               onChange={(e) =>
                 handleActualChange("leads", e.target.value)
@@ -366,7 +367,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.mqls}
               onChange={(e) =>
                 handleActualChange("mqls", e.target.value)
@@ -380,13 +381,12 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.sqls}
               onChange={(e) =>
                 handleActualChange("sqls", e.target.value)
               }
             />
-            {/* MQL → SQL vs target */}
             {renderDelta(
               conversionRates.mqlToSql,
               benchmarks.mqlToSql
@@ -399,13 +399,12 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.opps}
               onChange={(e) =>
                 handleActualChange("opps", e.target.value)
               }
             />
-            {/* SQL → Opp vs target */}
             {renderDelta(
               conversionRates.sqlToOpp,
               benchmarks.sqlToOpp
@@ -418,13 +417,12 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.proposals}
               onChange={(e) =>
                 handleActualChange("proposals", e.target.value)
               }
             />
-            {/* Opp → Proposal vs target */}
             {renderDelta(
               conversionRates.oppToProposal,
               benchmarks.oppToProposal
@@ -437,27 +435,26 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.wins}
               onChange={(e) =>
                 handleActualChange("wins", e.target.value)
               }
             />
-            {/* Proposal → Win vs target */}
             {renderDelta(
               conversionRates.proposalToWin,
               benchmarks.proposalToWin
             )}
           </div>
 
-          {/* bottom row: 4 equal boxes, each col-span-3 */}
+          {/* bottom row: 4 equal boxes, col-span-3 each */}
           <div className="md:col-span-3">
             <label className="block text-xs text-slate-300">
               New ARR in this timeframe (€)
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.newArr}
               onChange={(e) =>
                 handleActualChange("newArr", e.target.value)
@@ -469,7 +466,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             <label className="block text-xs text-slate-300">
               Average Contract Value (ACV)
             </label>
-            <div className="mt-1 flex items-center gap-1 rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs">
+            <div className="mt-1 flex items-center gap-1 rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm">
               <span className="text-slate-500">€</span>
               <input
                 type="text"
@@ -485,7 +482,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
               Include NRR in ARR path
             </label>
             <select
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={actuals.includeCustomerSuccess ? "true" : "false"}
               onChange={(e) =>
                 handleActualChange(
@@ -509,7 +506,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
               value={Number((actuals.nrr * 100).toFixed(0))}
               onChange={(e) =>
                 setActuals((prev) => ({
