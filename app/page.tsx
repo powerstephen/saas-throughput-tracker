@@ -37,9 +37,8 @@ const HomePage: React.FC = () => {
         {/* Header with lightning icon */}
         <header className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-500/90 text-xl text-slate-950 shadow-lg shadow-sky-500/40">
-              ⚡
-            </div>
+            {/* Bigger lightning, no background */}
+            <span className="text-3xl">⚡</span>
             <div>
               <h1 className="text-xl font-semibold">
                 SaaS Throughput & ARR Planner
