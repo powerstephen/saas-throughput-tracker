@@ -1,3 +1,4 @@
+// components/BenchmarksPanel.tsx
 "use client";
 
 import React from "react";
@@ -18,7 +19,7 @@ export interface Benchmarks {
   expansion: number; // decimal per year, e.g. 0.2 = 20%
   nrr: number; // multiple, e.g. 1.2 = 120%
 
-  // optional – for context only
+  // optional current ARR (existing recurring revenue)
   currentArr?: number;
 }
 
@@ -48,8 +49,13 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
     });
   };
 
+  const formatInt = (v: number | undefined) =>
+    (v ?? 0).toLocaleString("en-IE", {
+      maximumFractionDigits: 0,
+    });
+
   return (
-    <section className="mt-6 rounded-2xl border border-sky-700 bg-slate-950 px-6 py-5 text-slate-50">
+    <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 px-6 py-5 text-slate-50">
       <h2 className="text-lg font-semibold">Benchmarks</h2>
       <p className="mt-1 text-sm text-slate-400">
         These benchmarks drive the diagnosis, scenarios, and ARR projections
@@ -69,11 +75,26 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
             <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
               <span className="text-slate-500">€</span>
               <input
-                type="number"
+                type="text"
                 className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
-                value={benchmarks.targetArr}
+                value={formatInt(benchmarks.targetArr)}
                 onChange={(e) =>
                   handleNumberChange("targetArr", e.target.value)
+                }
+              />
+            </div>
+          </label>
+
+          <label className="mt-3 block text-xs text-slate-400">
+            Current ARR (existing recurring revenue)
+            <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
+              <span className="text-slate-500">€</span>
+              <input
+                type="text"
+                className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
+                value={formatInt(benchmarks.currentArr)}
+                onChange={(e) =>
+                  handleNumberChange("currentArr", e.target.value)
                 }
               />
             </div>
@@ -89,21 +110,6 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
                 handleNumberChange("timeframeWeeks", e.target.value)
               }
             />
-          </label>
-
-          <label className="mt-3 block text-xs text-slate-400">
-            Current ARR (€)
-            <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
-              <span className="text-slate-500">€</span>
-              <input
-                type="number"
-                className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
-                value={benchmarks.currentArr ?? 0}
-                onChange={(e) =>
-                  handleNumberChange("currentArr", e.target.value)
-                }
-              />
-            </div>
           </label>
         </div>
 
@@ -187,9 +193,9 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
             <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
               <span className="text-slate-500">€</span>
               <input
-                type="number"
+                type="text"
                 className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
-                value={benchmarks.acv}
+                value={formatInt(benchmarks.acv)}
                 onChange={(e) => handleNumberChange("acv", e.target.value)}
               />
             </div>
