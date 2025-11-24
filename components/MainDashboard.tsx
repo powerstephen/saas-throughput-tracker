@@ -610,15 +610,20 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               New ARR in this timeframe (€)
             </label>
             <input
-              type="number"
+              type="text"
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
-              value={actuals.newArr}
-              onChange={(e) =>
+              value={actuals.newArr.toLocaleString("en-IE", {
+                maximumFractionDigits: 0,
+              })}
+              onChange={(e) => {
+                const numeric = Number(
+                  e.target.value.replace(/[^0-9.-]/g, "")
+                );
                 handleActualChange(
                   "newArr",
-                  e.target.value
-                )
-              }
+                  String(isNaN(numeric) ? 0 : numeric)
+                );
+              }}
             />
           </div>
 
