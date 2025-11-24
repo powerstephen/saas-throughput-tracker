@@ -4,6 +4,7 @@ import React from "react";
 
 export interface Benchmarks {
   targetArr: number;
+  currentArr: number;
   timeframeWeeks: number;
 
   // funnel conversion targets (stored as decimals, e.g. 0.35 = 35%)
@@ -71,6 +72,21 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
                 value={benchmarks.targetArr}
                 onChange={(e) =>
                   handleNumberChange("targetArr", e.target.value)
+                }
+              />
+            </div>
+          </label>
+
+          <label className="mt-3 block text-xs text-slate-400">
+            Current ARR
+            <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
+              <span className="text-slate-500">€</span>
+              <input
+                type="number"
+                className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
+                value={benchmarks.currentArr}
+                onChange={(e) =>
+                  handleNumberChange("currentArr", e.target.value)
                 }
               />
             </div>
