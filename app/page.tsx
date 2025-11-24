@@ -31,10 +31,10 @@ export default function HomePage() {
         {/* Header */}
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            {/* ⚡ Logo */}
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-sky-500/60 bg-sky-500/15">
+            {/* ⚡ Logo – bigger, no border */}
+            <div className="flex h-14 w-14 items-center justify-center">
               <span
-                className="text-lg"
+                className="text-3xl"
                 aria-hidden="true"
               >
                 ⚡
