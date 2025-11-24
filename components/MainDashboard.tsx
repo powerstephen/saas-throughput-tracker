@@ -17,8 +17,7 @@ type Actuals = {
   wins: number;
   newArr: number;
   includeCustomerSuccess: boolean;
-  churnRate: number; // monthly
-  expansionRate: number; // monthly
+  nrr: number; // multiple, e.g. 1.2 = 120%
 };
 
 type ScenarioId = "weakest-stage" | "lift-acv" | "boost-leads" | null;
@@ -60,8 +59,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
     wins: 25,
     newArr: 900_000,
     includeCustomerSuccess: true,
-    churnRate: 0.01,
-    expansionRate: 0.02,
+    nrr: 1.15, // 115% current NRR
   });
 
   const [activeScenario, setActiveScenario] = useState<ScenarioId>(null);
@@ -73,7 +71,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
     [actuals.timeframe]
   );
 
-  // ✅ Use benchmarks.acv (your current Benchmarks type) as fallback ACV
+  // Base ACV = ARR / Wins, with fallback to benchmark ACV
   const baseAcv = useMemo(() => {
     if (actuals.wins > 0) {
       const acv = actuals.newArr / actuals.wins;
@@ -297,6 +295,22 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
 
   const gapAbs = Math.abs(selectedMetrics.gapToTarget);
 
+  const renderDelta = (actual: number, target: number) => {
+    if (!Number.isFinite(actual) || !Number.isFinite(target)) return null;
+    const delta = (actual - target) * 100;
+    if (!Number.isFinite(delta)) return null;
+
+    const sign = delta >= 0 ? "+" : "";
+    const tone =
+      delta >= 0 ? "text-emerald-400" : "text-red-400";
+
+    return (
+      <p className={`mt-1 text-[10px] ${tone}`}>
+        {`${sign}${delta.toFixed(1)} pts vs target`}
+      </p>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Funnel + ARR inputs */}
@@ -312,7 +326,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-xs text-slate-300">Timeframe</label>
+            <label className="text-xs text-slate-300">
+              Timeframe
+            </label>
             <select
               className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs"
               value={actuals.timeframe}
@@ -368,6 +384,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
                 handleActualChange("sqls", e.target.value)
               }
             />
+            {/* MQL → SQL vs target */}
+            {renderDelta(
+              conversionRates.mqlToSql,
+              benchmarks.mqlToSql
+            )}
           </div>
 
           <div className="md:col-span-1">
@@ -382,6 +403,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
                 handleActualChange("opps", e.target.value)
               }
             />
+            {/* SQL → Opp vs target */}
+            {renderDelta(
+              conversionRates.sqlToOpp,
+              benchmarks.sqlToOpp
+            )}
           </div>
 
           <div className="md:col-span-1">
@@ -396,6 +422,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
                 handleActualChange("proposals", e.target.value)
               }
             />
+            {/* Opp → Proposal vs target */}
+            {renderDelta(
+              conversionRates.oppToProposal,
+              benchmarks.oppToProposal
+            )}
           </div>
 
           <div className="md:col-span-1">
@@ -410,8 +441,14 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
                 handleActualChange("wins", e.target.value)
               }
             />
+            {/* Proposal → Win vs target */}
+            {renderDelta(
+              conversionRates.proposalToWin,
+              benchmarks.proposalToWin
+            )}
           </div>
 
+          {/* Bottom row: New ARR, ACV, CS toggle, NRR */}
           <div className="md:col-span-2">
             <label className="block text-xs text-slate-300">
               New ARR in this timeframe (€)
@@ -428,13 +465,31 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
 
           <div className="md:col-span-2">
             <label className="block text-xs text-slate-300">
+              Average Contract Value (ACV)
+            </label>
+            <div className="mt-1 flex items-center gap-1 rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs">
+              <span className="text-slate-500">€</span>
+              <input
+                type="text"
+                className="w-full bg-transparent outline-none"
+                value={Number.isFinite(baseAcv) ? baseAcv.toFixed(0) : "0"}
+                readOnly
+              />
+            </div>
+          </div>
+
+          <div className="md:col-span-1">
+            <label className="block text-xs text-slate-300">
               Include Customer Success (NRR) in ARR path
             </label>
             <select
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
               value={actuals.includeCustomerSuccess ? "true" : "false"}
               onChange={(e) =>
-                handleActualChange("includeCustomerSuccess", e.target.value)
+                handleActualChange(
+                  "includeCustomerSuccess",
+                  e.target.value
+                )
               }
             >
               <option value="true">
@@ -448,34 +503,17 @@ const MainDashboard: React.FC<MainDashboardProps> = ({ benchmarks }) => {
 
           <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
-              Monthly churn (%)
+              Current NRR (%)
             </label>
             <input
               type="number"
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-              value={actuals.churnRate * 100}
+              value={actuals.nrr * 100}
               onChange={(e) =>
-                handleActualChange(
-                  "churnRate",
-                  String((Number(e.target.value) || 0) / 100)
-                )
-              }
-            />
-          </div>
-
-          <div className="md:col-span-1">
-            <label className="block text-xs text-slate-300">
-              Monthly expansion (%)
-            </label>
-            <input
-              type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-              value={actuals.expansionRate * 100}
-              onChange={(e) =>
-                handleActualChange(
-                  "expansionRate",
-                  String((Number(e.target.value) || 0) / 100)
-                )
+                setActuals((prev) => ({
+                  ...prev,
+                  nrr: (Number(e.target.value) || 0) / 100,
+                }))
               }
             />
           </div>
