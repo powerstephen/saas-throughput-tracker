@@ -251,6 +251,11 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     }));
   }, [actuals, benchmarks]);
 
+  // New leads baseline vs benchmark (per timeframe)
+  const leadsExpected =
+    benchmarks.newLeadsPerMonth * monthsInPeriod;
+  const leadsDiff = actuals.leads - leadsExpected;
+
   const computeScenarioMetricsFromNewArr = (
     scenarioNewArr: number
   ): ScenarioMetrics => {
@@ -493,7 +498,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-50"
               value={actuals.leads}
               onChange={(e) =>
                 handleActualChange(
@@ -510,7 +515,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-50"
               value={actuals.mqls}
               onChange={(e) =>
                 handleActualChange(
@@ -527,7 +532,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-50"
               value={actuals.sqls}
               onChange={(e) =>
                 handleActualChange(
@@ -544,7 +549,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-50"
               value={actuals.opps}
               onChange={(e) =>
                 handleActualChange(
@@ -561,7 +566,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-50"
               value={actuals.proposals}
               onChange={(e) =>
                 handleActualChange(
@@ -578,7 +583,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             </label>
             <input
               type="number"
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-50"
               value={actuals.wins}
               onChange={(e) =>
                 handleActualChange(
@@ -592,8 +597,29 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
 
         {/* Under/over vs benchmark directly under funnel numbers */}
         <div className="mt-1 grid gap-4 md:grid-cols-6">
-          {/* empty under Leads */}
-          <div className="md:col-span-1" />
+          {/* Leads over/under vs baseline (newLeadsPerMonth * monthsInPeriod) */}
+          <div className="md:col-span-1 flex items-center justify-center text-xs font-semibold">
+            {(() => {
+              const isAbove = leadsDiff >= 0;
+              const arrow = isAbove ? "↑" : "↓";
+              const absDiff = Math.round(
+                Math.abs(leadsDiff)
+              );
+              return (
+                <span
+                  className={
+                    isAbove
+                      ? "text-emerald-400"
+                      : "text-red-400"
+                  }
+                >
+                  {arrow} {formatInteger(absDiff)}
+                </span>
+              );
+            })()}
+          </div>
+
+          {/* Stage over/under metrics under MQLs, SQLs, Opps, Proposals, Wins */}
           {funnelBenchmarkComparisons.map((metric) => {
             const isAbove = metric.diff >= 0;
             const arrow = isAbove ? "↑" : "↓";
@@ -626,13 +652,13 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             <label className="block text-xs text-slate-300">
               New ARR in Period
             </label>
-            <div className="mt-1 flex items-center gap-1 rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs">
+            <div className="mt-1 flex items-center gap-1 rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm">
               <span className="text-slate-500">
                 €
               </span>
               <input
                 type="text"
-                className="w-full bg-transparent text-xs text-slate-100 outline-none"
+                className="w-full bg-transparent text-sm text-slate-50 outline-none"
                 value={
                   actuals.newArr
                     ? formatInteger(actuals.newArr)
@@ -652,7 +678,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             <label className="block text-xs text-slate-300">
               Average contract value (ACV)
             </label>
-            <div className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100">
+            <div className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-50">
               {avgAcvDisplay}
             </div>
           </div>
@@ -662,7 +688,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               Include NRR in ARR path
             </label>
             <select
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-50"
               value={
                 actuals.includeCustomerSuccess
                   ? "true"
@@ -688,7 +714,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             <label className="block text-xs text-slate-300">
               NRR benchmark (%)
             </label>
-            <div className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100">
+            <div className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-50">
               {formatPercent(benchmarks.nrr - 1)}
             </div>
           </div>
