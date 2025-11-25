@@ -17,6 +17,8 @@ type Actuals = {
   wins: number;
   newArr: number;
   includeCustomerSuccess: boolean;
+  churnRate: number; // monthly decimal (0.01 = 1%)
+  expansionRate: number; // monthly decimal
 };
 
 type ScenarioId = "weakest-stage" | "lift-acv" | "boost-leads" | null;
@@ -25,10 +27,6 @@ type ScenarioMetrics = {
   forecastArr: number;
   gapToTarget: number;
   currentRunRate: number;
-};
-
-type MainDashboardProps = {
-  benchmarks: Benchmarks;
 };
 
 const formatCurrency = (value: number) =>
@@ -48,7 +46,7 @@ function clampNumber(num: number) {
   return Number.isFinite(num) ? num : 0;
 }
 
-const MainDashboard: React.FC<MainDashboardProps> = ({
+const MainDashboard: React.FC<{ benchmarks: Benchmarks }> = ({
   benchmarks,
 }) => {
   const [actuals, setActuals] = useState<Actuals>({
@@ -61,6 +59,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     wins: 25,
     newArr: 900_000,
     includeCustomerSuccess: true,
+    churnRate: 0.01,
+    expansionRate: 0.02,
   });
 
   const [activeScenario, setActiveScenario] =
@@ -73,50 +73,39 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     [actuals.timeframe]
   );
 
-  // ACV: use actuals (ARR / wins) or fall back to benchmark ACV
+  /**
+   * Base ACV:
+   * - If we have wins, use newArr / wins
+   * - If no wins, fall back to the benchmark ACV
+   */
   const baseAcv = useMemo(() => {
     if (actuals.wins > 0) {
       const acv = actuals.newArr / actuals.wins;
       return clampNumber(acv);
     }
-    return benchmarks.acv;
+    if (benchmarks.acv > 0) {
+      return benchmarks.acv;
+    }
+    return 0;
   }, [actuals.newArr, actuals.wins, benchmarks.acv]);
 
   const baseMetrics = useMemo(() => {
     const currentRunRate =
-      monthsInPeriod > 0 ? actuals.newArr / monthsInPeriod : 0;
+      monthsInPeriod > 0
+        ? actuals.newArr / monthsInPeriod
+        : 0;
 
     const weeksInTimeframe = benchmarks.timeframeWeeks;
     const monthsInTargetPeriod = weeksInTimeframe / 4.345;
 
-    const projectedNewArr =
+    const forecastArr =
       currentRunRate * monthsInTargetPeriod;
-
-    let forecastArr: number;
-
-    if (actuals.includeCustomerSuccess) {
-      // Include NRR effect on existing ARR across the target period
-      const years = monthsInTargetPeriod / 12;
-      const nrrFactor = Math.pow(
-        benchmarks.nrr || 1,
-        years
-      );
-      forecastArr =
-        benchmarks.currentArr * nrrFactor +
-        projectedNewArr;
-    } else {
-      // Simple: current ARR + new ARR projected
-      forecastArr =
-        benchmarks.currentArr + projectedNewArr;
-    }
 
     const gapToTarget = forecastArr - benchmarks.targetArr;
 
-    // New ARR we need per month (target minus current ARR)
     const requiredRunRate =
       monthsInTargetPeriod > 0
-        ? (benchmarks.targetArr - benchmarks.currentArr) /
-          monthsInTargetPeriod
+        ? benchmarks.targetArr / monthsInTargetPeriod
         : 0;
 
     return {
@@ -125,15 +114,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       gapToTarget: clampNumber(gapToTarget),
       requiredRunRate: clampNumber(requiredRunRate),
     };
-  }, [
-    actuals.newArr,
-    actuals.includeCustomerSuccess,
-    monthsInPeriod,
-    benchmarks.currentArr,
-    benchmarks.targetArr,
-    benchmarks.timeframeWeeks,
-    benchmarks.nrr,
-  ]);
+  }, [actuals.newArr, monthsInPeriod, benchmarks]);
 
   const selectedMetrics = scenarioMetrics || baseMetrics;
 
@@ -162,7 +143,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     };
   }, [actuals]);
 
-  // Identify weakest underperforming stage vs benchmark
   const weakestStage = useMemo(() => {
     const stages = [
       {
@@ -215,61 +195,41 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     const weeksInTimeframe = benchmarks.timeframeWeeks;
     const monthsInTargetPeriod = weeksInTimeframe / 4.345;
 
-    if (scenario === "weakest-stage") {
+    // 1) Fix weakest stage
+    if (scenario === "weakest-stage" && weakestStage) {
       let { leads, mqls, sqls, opps, proposals } = actuals;
       let wins = actuals.wins;
 
-      // If there is an underperforming stage, lift it back to benchmark.
-      // If not, model a +10% lift in SQL → Opp as a "best next lever".
-      if (weakestStage) {
-        if (weakestStage.id === "mqlToSql") {
-          const newSqls = Math.round(
-            mqls * benchmarks.mqlToSql
-          );
-          const newOpps =
-            conversionRates.sqlToOpp * newSqls;
-          const newProposals =
-            conversionRates.oppToProposal * newOpps;
-          const newWins =
-            conversionRates.proposalToWin *
-            newProposals;
-          wins = newWins;
-        } else if (weakestStage.id === "sqlToOpp") {
-          const newOpps = Math.round(
-            sqls * benchmarks.sqlToOpp
-          );
-          const newProposals =
-            conversionRates.oppToProposal * newOpps;
-          const newWins =
-            conversionRates.proposalToWin *
-            newProposals;
-          wins = newWins;
-        } else if (weakestStage.id === "oppToProposal") {
-          const newProposals = Math.round(
-            opps * benchmarks.oppToProposal
-          );
-          const newWins =
-            conversionRates.proposalToWin *
-            newProposals;
-          wins = newWins;
-        } else if (weakestStage.id === "proposalToWin") {
-          const newWins = Math.round(
-            proposals * benchmarks.proposalToWin
-          );
-          wins = newWins;
-        }
-      } else {
-        // All at/above target: model a +10% lift in SQL → Opp
-        const improvedSqlToOpp =
-          conversionRates.sqlToOpp * 1.1;
+      if (weakestStage.id === "mqlToSql") {
+        const newSqls = Math.round(
+          mqls * benchmarks.mqlToSql
+        );
+        const newOpps = conversionRates.sqlToOpp * newSqls;
+        const newProposals =
+          conversionRates.oppToProposal * newOpps;
+        const newWins =
+          conversionRates.proposalToWin * newProposals;
+        wins = newWins;
+      } else if (weakestStage.id === "sqlToOpp") {
         const newOpps = Math.round(
-          sqls * improvedSqlToOpp
+          sqls * benchmarks.sqlToOpp
         );
         const newProposals =
           conversionRates.oppToProposal * newOpps;
         const newWins =
-          conversionRates.proposalToWin *
-          newProposals;
+          conversionRates.proposalToWin * newProposals;
+        wins = newWins;
+      } else if (weakestStage.id === "oppToProposal") {
+        const newProposals = Math.round(
+          opps * benchmarks.oppToProposal
+        );
+        const newWins =
+          conversionRates.proposalToWin * newProposals;
+        wins = newWins;
+      } else if (weakestStage.id === "proposalToWin") {
+        const newWins = Math.round(
+          proposals * benchmarks.proposalToWin
+        );
         wins = newWins;
       }
 
@@ -279,17 +239,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
           ? newArr / monthsInPeriod
           : 0;
       const forecastArr =
-        currentRunRate * monthsInTargetPeriod +
-        (actuals.includeCustomerSuccess
-          ? benchmarks.currentArr *
-            Math.pow(
-              benchmarks.nrr || 1,
-              monthsInTargetPeriod / 12
-            ) -
-            benchmarks.currentArr
-          : 0) +
-        benchmarks.currentArr;
-
+        currentRunRate * monthsInTargetPeriod;
       const gapToTarget =
         forecastArr - benchmarks.targetArr;
 
@@ -302,17 +252,26 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       return;
     }
 
+    // 2) Lift ACV by 10% — ensure ARR never goes DOWN vs base
     if (scenario === "lift-acv") {
       const improvedAcv = baseAcv * 1.1;
-      const newArr = actuals.wins * improvedAcv;
+
+      // If we have wins, use them. If not, infer an equivalent number of wins
+      // from newArr and baseAcv so that uplift is still +10% on ARR.
+      const impliedWins =
+        actuals.wins > 0
+          ? actuals.wins
+          : baseAcv > 0
+          ? actuals.newArr / baseAcv
+          : 0;
+
+      const newArr = impliedWins * improvedAcv;
+
       const currentRunRate =
         monthsInPeriod > 0
           ? newArr / monthsInPeriod
           : 0;
-      const monthsInTargetPeriod =
-        benchmarks.timeframeWeeks / 4.345;
       const forecastArr =
-        benchmarks.currentArr +
         currentRunRate * monthsInTargetPeriod;
       const gapToTarget =
         forecastArr - benchmarks.targetArr;
@@ -326,6 +285,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       return;
     }
 
+    // 3) Boost lead volume by 20%
     if (scenario === "boost-leads") {
       const boostedLeads = actuals.leads * 1.2;
       const mqls =
@@ -344,10 +304,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
         monthsInPeriod > 0
           ? newArr / monthsInPeriod
           : 0;
-      const monthsInTargetPeriod =
-        benchmarks.timeframeWeeks / 4.345;
       const forecastArr =
-        benchmarks.currentArr +
         currentRunRate * monthsInTargetPeriod;
       const gapToTarget =
         forecastArr - benchmarks.targetArr;
@@ -376,12 +333,15 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
           timeframe: value as Timeframe,
         };
       }
+
       if (field === "includeCustomerSuccess") {
         return {
           ...prev,
-          includeCustomerSuccess: value === "true",
+          includeCustomerSuccess:
+            value === "true",
         };
       }
+
       const num = Number(value) || 0;
       return {
         ...prev,
@@ -391,10 +351,14 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
   };
 
   const gapStatusLabel =
-    selectedMetrics.gapToTarget >= 0 ? "Ahead" : "Behind";
+    selectedMetrics.gapToTarget >= 0
+      ? "Ahead"
+      : "Behind";
 
   const gapStatusTone =
-    selectedMetrics.gapToTarget >= 0 ? "good" : "bad";
+    selectedMetrics.gapToTarget >= 0
+      ? "good"
+      : "bad";
 
   const runRateStatusTone =
     selectedMetrics.currentRunRate >=
@@ -402,22 +366,35 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       ? "good"
       : "warning";
 
-  const gapAbs = Math.abs(selectedMetrics.gapToTarget);
+  const gapAbs = Math.abs(
+    selectedMetrics.gapToTarget
+  );
 
-  const monthlyLeadTarget = benchmarks.newLeadsPerMonth;
-  const monthlyLeadActual =
-    monthsInPeriod > 0
-      ? actuals.leads / monthsInPeriod
-      : 0;
-  const leadDelta =
-    monthlyLeadTarget > 0
-      ? (monthlyLeadActual - monthlyLeadTarget) /
-        monthlyLeadTarget
-      : 0;
+  // Simple snapshot summary for bottom of page
+  const snapshotSummary = (() => {
+    const ahead = selectedMetrics.gapToTarget >= 0;
+    const runRateOk =
+      selectedMetrics.currentRunRate >=
+      baseMetrics.requiredRunRate;
+
+    if (ahead && runRateOk) {
+      return "You’re ahead of ARR target and current run rate is above what’s required. Focus on maintaining quality and pipeline health.";
+    }
+
+    if (!ahead && runRateOk) {
+      return "Run rate is strong but you’re still behind ARR target. Look at pipeline coverage, deal size and CS-led expansion to close the gap.";
+    }
+
+    if (ahead && !runRateOk) {
+      return "You’re currently ahead of target but run rate is slightly under what’s required. Keep an eye on lead volume and mid-funnel conversions.";
+    }
+
+    return "You’re behind ARR target and run rate is under what’s required. The scenarios above highlight where to focus first to unlock the biggest ARR lift.";
+  })();
 
   return (
     <div className="space-y-6">
-      {/* Current funnel velocity */}
+      {/* Current funnel + ARR inputs */}
       <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg shadow-slate-950/40">
         <div className="mb-4 flex items-center justify-between gap-2">
           <div>
@@ -425,8 +402,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               Current Funnel Velocity (Last 30/60/90 Days)
             </h2>
             <p className="text-xs text-slate-400">
-              Plug in a recent period. The model will project this performance
-              against your ARR targets and NRR assumptions.
+              Plug in a recent 30 / 60 / 90-day period. The
+              model will project this performance against your
+              ARR target.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -443,17 +421,22 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 )
               }
             >
-              <option value="30">Last 30 days</option>
-              <option value="60">Last 60 days</option>
-              <option value="90">Last 90 days</option>
+              <option value="30">
+                Last 30 days
+              </option>
+              <option value="60">
+                Last 60 days
+              </option>
+              <option value="90">
+                Last 90 days
+              </option>
             </select>
           </div>
         </div>
 
-        {/* Top row inputs */}
+        {/* Top row: funnel counts */}
         <div className="grid gap-4 md:grid-cols-6">
-          {/* Leads */}
-          <div>
+          <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
               Leads
             </label>
@@ -468,39 +451,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 )
               }
             />
-            {monthlyLeadTarget > 0 && (
-              <p className="mt-1 text-[10px] text-slate-400">
-                {monthlyLeadActual >= monthlyLeadTarget ? (
-                  <span className="text-emerald-400">
-                    {formatCurrency(monthlyLeadActual).replace(
-                      "€",
-                      ""
-                    )}{" "}
-                    /mo (above{" "}
-                    {formatCurrency(
-                      monthlyLeadTarget
-                    ).replace("€", "")}
-                    )
-                  </span>
-                ) : (
-                  <span className="text-amber-300">
-                    {formatCurrency(monthlyLeadActual).replace(
-                      "€",
-                      ""
-                    )}{" "}
-                    /mo (below{" "}
-                    {formatCurrency(
-                      monthlyLeadTarget
-                    ).replace("€", "")}
-                    )
-                  </span>
-                )}
-              </p>
-            )}
           </div>
 
-          {/* MQLs */}
-          <div>
+          <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
               MQLs
             </label>
@@ -515,28 +468,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 )
               }
             />
-            <p className="mt-1 text-[10px] text-slate-400">
-              Leads → MQL:{" "}
-              <span
-                className={
-                  conversionRates.leadToMql >=
-                  benchmarks.leadsToMql
-                    ? "text-emerald-400"
-                    : "text-amber-300"
-                }
-              >
-                {formatPercent(
-                  conversionRates.leadToMql
-                )}{" "}
-                (target{" "}
-                {formatPercent(benchmarks.leadsToMql)}
-                )
-              </span>
-            </p>
           </div>
 
-          {/* SQLs */}
-          <div>
+          <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
               SQLs
             </label>
@@ -551,27 +485,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 )
               }
             />
-            <p className="mt-1 text-[10px] text-slate-400">
-              MQL → SQL:{" "}
-              <span
-                className={
-                  conversionRates.mqlToSql >=
-                  benchmarks.mqlToSql
-                    ? "text-emerald-400"
-                    : "text-amber-300"
-                }
-              >
-                {formatPercent(
-                  conversionRates.mqlToSql
-                )}{" "}
-                (target{" "}
-                {formatPercent(benchmarks.mqlToSql)})
-              </span>
-            </p>
           </div>
 
-          {/* Opps */}
-          <div>
+          <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
               Opportunities
             </label>
@@ -586,27 +502,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 )
               }
             />
-            <p className="mt-1 text-[10px] text-slate-400">
-              SQL → Opp:{" "}
-              <span
-                className={
-                  conversionRates.sqlToOpp >=
-                  benchmarks.sqlToOpp
-                    ? "text-emerald-400"
-                    : "text-amber-300"
-                }
-              >
-                {formatPercent(
-                  conversionRates.sqlToOpp
-                )}{" "}
-                (target{" "}
-                {formatPercent(benchmarks.sqlToOpp)})
-              </span>
-            </p>
           </div>
 
-          {/* Proposals */}
-          <div>
+          <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
               Proposals
             </label>
@@ -621,30 +519,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 )
               }
             />
-            <p className="mt-1 text-[10px] text-slate-400">
-              Opp → Proposal:{" "}
-              <span
-                className={
-                  conversionRates.oppToProposal >=
-                  benchmarks.oppToProposal
-                    ? "text-emerald-400"
-                    : "text-amber-300"
-                }
-              >
-                {formatPercent(
-                  conversionRates.oppToProposal
-                )}{" "}
-                (target{" "}
-                {formatPercent(
-                  benchmarks.oppToProposal
-                )}
-                )
-              </span>
-            </p>
           </div>
 
-          {/* Wins */}
-          <div>
+          <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
               Wins
             </label>
@@ -659,60 +536,50 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 )
               }
             />
-            <p className="mt-1 text-[10px] text-slate-400">
-              Proposal → Win:{" "}
-              <span
-                className={
-                  conversionRates.proposalToWin >=
-                  benchmarks.proposalToWin
-                    ? "text-emerald-400"
-                    : "text-amber-300"
-                }
-              >
-                {formatPercent(
-                  conversionRates.proposalToWin
-                )}{" "}
-                (target{" "}
-                {formatPercent(
-                  benchmarks.proposalToWin
-                )}
-                )
-              </span>
-            </p>
           </div>
         </div>
 
-        {/* Bottom row: 4 equal boxes */}
+        {/* Bottom row: ARR, ACV, NRR toggle, NRR value */}
         <div className="mt-4 grid gap-4 md:grid-cols-4">
-          <div>
+          <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
-              New ARR in timeframe (€)
+              New ARR in this timeframe (€)
             </label>
             <input
               type="number"
               className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
-              value={actuals.newArr}
+              value={actuals.newArr.toLocaleString(
+                "en-IE",
+                { maximumFractionDigits: 0 }
+              )}
               onChange={(e) =>
                 handleActualChange(
                   "newArr",
-                  e.target.value
+                  e.target.value.replace(/,/g, "")
                 )
               }
             />
           </div>
 
-          <div>
+          <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
-              Average contract value (ACV)
+              Average Contract Value (€)
             </label>
-            <div className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100">
-              {actuals.wins > 0
-                ? formatCurrency(baseAcv)
-                : "—"}
-            </div>
+            <input
+              type="text"
+              className="mt-1 w-full cursor-default rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
+              readOnly
+              value={
+                baseAcv > 0
+                  ? baseAcv.toLocaleString("en-IE", {
+                      maximumFractionDigits: 0,
+                    })
+                  : "-"
+              }
+            />
           </div>
 
-          <div>
+          <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
               Include NRR in ARR path
             </label>
@@ -731,21 +598,33 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               }
             >
               <option value="true">
-                Yes, include NRR uplift
+                Yes, include churn & expansion
               </option>
               <option value="false">
-                No, new ARR only
+                No, focus on new ARR only
               </option>
             </select>
           </div>
 
-          <div>
+          <div className="md:col-span-1">
             <label className="block text-xs text-slate-300">
-              NRR benchmark (%)
+              Current NRR (%)
             </label>
-            <div className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100">
-              {Math.round(benchmarks.nrr * 100)}%
-            </div>
+            <input
+              type="number"
+              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs"
+              value={(
+                (1 +
+                  (actuals.expansionRate -
+                    actuals.churnRate) *
+                    12) *
+                100
+              ).toFixed(1)}
+              onChange={() => {
+                // Kept simple for now – NRR input is display-only
+              }}
+              readOnly
+            />
           </div>
         </div>
       </section>
@@ -764,7 +643,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
           value={formatCurrency(
             selectedMetrics.forecastArr
           )}
-          subtitle="Based on current velocity"
+          subtitle="Based on current run rate"
           statusLabel={
             selectedMetrics.forecastArr >=
             benchmarks.targetArr
@@ -803,7 +682,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
           value={formatCurrency(
             baseMetrics.requiredRunRate
           )}
-          subtitle="New ARR needed per month"
+          subtitle="Average new ARR needed per month"
           statusLabel=""
           statusTone="neutral"
         />
@@ -817,8 +696,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               Priority scenarios to improve outcome
             </h2>
             <p className="text-xs text-slate-400">
-              The model flags underperforming stages and shows what happens if
-              you fix them or pull key levers.
+              The model flags underperforming stages and
+              shows what happens if you fix them or pull key
+              levers.
             </p>
           </div>
           {activeScenario && (
@@ -838,24 +718,25 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               <h3 className="text-xs font-semibold text-slate-100">
                 {weakestStage
                   ? `Fix weakest stage (${weakestStage.label})`
-                  : "Lift mid-funnel conversion"}
+                  : "Fix weakest stage"}
               </h3>
               <p className="text-xs text-slate-400">
                 {weakestStage ? (
                   <>
-                    {weakestStage.label} is currently lagging target.
-                    Actual{" "}
-                    {formatPercent(weakestStage.actual)} vs
-                    target{" "}
-                    {formatPercent(weakestStage.target)}.
-                    See the impact of bringing it back to benchmark.
+                    {weakestStage.label} is currently
+                    lagging target. Actual{" "}
+                    {formatPercent(
+                      weakestStage.actual
+                    )}{" "}
+                    vs target{" "}
+                    {formatPercent(
+                      weakestStage.target
+                    )}
+                    . See the impact of bringing it
+                    back to benchmark.
                   </>
                 ) : (
-                  <>
-                    All main stages are at or above target. This scenario models
-                    an extra lift in mid-funnel conversion to show additional
-                    upside on ARR.
-                  </>
+                  "All main stages are at or above target. Use the ACV or Lead Volume scenarios below to model additional upside."
                 )}
               </p>
             </div>
@@ -864,7 +745,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 applyScenario("weakest-stage")
               }
               className={`mt-3 inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                activeScenario === "weakest-stage"
+                activeScenario ===
+                "weakest-stage"
                   ? "bg-sky-500 text-slate-950"
                   : "bg-slate-800 text-slate-100 hover:bg-slate-700"
               }`}
@@ -881,8 +763,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               </h3>
               <p className="text-xs text-slate-400">
                 Current ACV is around{" "}
-                {formatCurrency(baseAcv)}. See what happens if you improve
-                pricing, discount discipline, or packaging to lift ACV by 10%.
+                {formatCurrency(baseAcv)}. See what
+                happens if you improve pricing, discount
+                discipline, or packaging to lift ACV by
+                10%.
               </p>
             </div>
             <button
@@ -906,9 +790,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 Increase lead volume by 20%
               </h3>
               <p className="text-xs text-slate-400">
-                Model the impact of a 20% uplift in lead volume at current
-                conversion rates. Useful for testing paid budget and new channel
-                plays against your ARR target.
+                Model the impact of a 20% uplift in lead
+                volume at current conversion rates.
+                Useful for testing paid budget or new
+                channel plays.
               </p>
             </div>
             <button
@@ -933,73 +818,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
           Snapshot summary
         </h2>
         <p className="mt-1 text-xs text-slate-400">
-          Quick read on where you stand and which levers matter most.
+          {snapshotSummary}
         </p>
-        <ul className="mt-3 space-y-1 text-xs text-slate-300">
-          <li>
-            • You are{" "}
-            <span
-              className={
-                gapStatusTone === "good"
-                  ? "text-emerald-400"
-                  : "text-amber-300"
-              }
-            >
-              {gapStatusLabel.toLowerCase()}{" "}
-              {formatCurrency(gapAbs)}{" "}
-            </span>
-            vs your ARR target over the selected timeframe.
-          </li>
-          <li>
-            • Current new ARR run rate is{" "}
-            <span className="text-sky-300">
-              {formatCurrency(
-                baseMetrics.currentRunRate
-              )}
-              /month
-            </span>{" "}
-            vs required{" "}
-            <span className="text-sky-300">
-              {formatCurrency(
-                baseMetrics.requiredRunRate
-              )}
-              /month
-            </span>
-            .
-          </li>
-          <li>
-            • Lead volume is{" "}
-            <span
-              className={
-                leadDelta >= 0
-                  ? "text-emerald-400"
-                  : "text-amber-300"
-              }
-            >
-              {leadDelta >= 0 ? "above" : "below"}{" "}
-              target
-            </span>{" "}
-            at approximately{" "}
-            {formatCurrency(
-              monthlyLeadActual
-            ).replace("€", "")}
-            /month vs{" "}
-            {formatCurrency(
-              monthlyLeadTarget
-            ).replace("€", "")}
-            /month benchmark.
-          </li>
-          <li>
-            • NRR is{" "}
-            <span className="text-sky-300">
-              {Math.round(benchmarks.nrr * 100)}%
-            </span>
-            {" "}and is currently{" "}
-            {actuals.includeCustomerSuccess
-              ? "included in the forecast."
-              : "ignored in the ARR forecast (new ARR only)."}
-          </li>
-        </ul>
       </section>
     </div>
   );
