@@ -448,6 +448,18 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       ? formatCurrency(baseAcv)
       : "—";
 
+  // Scenario summary text
+  const scenarioName =
+    activeScenario === "weakest-stage"
+      ? "Fix weakest stage"
+      : activeScenario === "lift-acv"
+      ? "Increase ACV by 10%"
+      : activeScenario === "boost-leads"
+      ? "Increase lead volume by 20%"
+      : "Base case";
+
+  const isAhead = selectedMetrics.gapToTarget >= 0;
+
   return (
     <div className="space-y-6">
       {/* Funnel + ARR inputs */}
@@ -902,6 +914,48 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             </button>
           </div>
         </div>
+      </section>
+
+      {/* Scenario summary at the bottom */}
+      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <h2 className="text-sm font-semibold text-slate-100">
+          {scenarioName} – summary
+        </h2>
+        <p className="mt-1 text-xs text-slate-400">
+          Forecast ARR is{" "}
+          <span className="font-semibold text-slate-100">
+            {formatCurrency(selectedMetrics.forecastArr)}
+          </span>{" "}
+          vs target{" "}
+          <span className="font-semibold text-slate-100">
+            {formatCurrency(benchmarks.targetArr)}
+          </span>
+          . You are{" "}
+          <span
+            className={
+              isAhead ? "text-emerald-400 font-semibold" : "text-red-400 font-semibold"
+            }
+          >
+            {isAhead ? "ahead" : "behind"}
+          </span>{" "}
+          by{" "}
+          <span className="font-semibold text-slate-100">
+            {formatCurrency(gapAbs)}
+          </span>
+          . Current run rate is{" "}
+          <span className="font-semibold text-slate-100">
+            {formatCurrency(selectedMetrics.currentRunRate)}
+          </span>{" "}
+          per month vs the required{" "}
+          <span className="font-semibold text-slate-100">
+            {formatCurrency(baseMetrics.requiredRunRate)}
+          </span>{" "}
+          to hit your ARR goal in{" "}
+          <span className="font-semibold text-slate-100">
+            {benchmarks.timeframeWeeks} weeks
+          </span>
+          .
+        </p>
       </section>
     </div>
   );
