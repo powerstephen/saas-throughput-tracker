@@ -19,7 +19,7 @@ type Actuals = {
   includeCustomerSuccess: boolean;
 };
 
-type ScenarioId = "weakest-stage" | "lift-acv" | "boost-leads" | null;
+type ScenarioId = "weakest-stage" | "acv-gap" | "boost-leads" | null;
 
 type ScenarioMetrics = {
   forecastArr: number;
@@ -116,6 +116,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       forecastArr: clampNumber(forecastArr),
       gapToTarget: clampNumber(gapToTarget),
       requiredRunRate: clampNumber(requiredRunRate),
+      monthsInTargetPeriod,
     };
   }, [
     actuals.newArr,
@@ -194,7 +195,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
   }, [conversionRates, benchmarks]);
 
   const monthsInTargetPeriod =
-    benchmarks.timeframeWeeks / 4.345;
+    baseMetrics.monthsInTargetPeriod;
 
   // Funnel stage vs benchmark (absolute counts and diff)
   const funnelBenchmarkComparisons = useMemo(() => {
@@ -288,7 +289,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     }
 
     if (scenario === "weakest-stage" && weakestStage) {
-      let { leads, mqls, sqls, opps, proposals } = actuals;
+      let { mqls, sqls, opps, proposals } = actuals;
       let wins = actuals.wins;
 
       if (weakestStage.id === "mqlToSql") {
@@ -335,16 +336,25 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       return;
     }
 
-    if (scenario === "lift-acv") {
-      const improvedAcv = baseAcv * 1.1;
-      const scenarioNewArr =
-        actuals.wins * improvedAcv;
+    // ACV GAP SCENARIO: bring ACV back to benchmark if it's below
+    if (scenario === "acv-gap") {
+      let targetAcv = baseAcv;
+
+      if (baseAcv < benchmarks.acv) {
+        // ACV is below benchmark -> scenario = fix back to benchmark ACV
+        targetAcv = benchmarks.acv;
+      } else {
+        // ACV already >= benchmark -> simple +10% uplift
+        targetAcv = baseAcv * 1.1;
+      }
+
+      const scenarioNewArr = actuals.wins * targetAcv;
       const metrics =
         computeScenarioMetricsFromNewArr(
           scenarioNewArr
         );
 
-      setActiveScenario("lift-acv");
+      setActiveScenario("acv-gap");
       setScenarioMetrics(metrics);
       return;
     }
@@ -397,7 +407,10 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
         };
       }
 
-      // Special handling for New ARR field: formatting + commas + empty state
+      // Special handling for New ARR field:
+      // - allow commas visually
+      // - clean to digits only
+      // - no lingering "0" when you clear the field
       if (field === "newArr") {
         const cleaned = value.replace(/[^\d]/g, "");
         if (!cleaned) {
@@ -448,12 +461,24 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       ? formatCurrency(baseAcv)
       : "—";
 
+  // For New ARR in Period vs what is required in this period
+  const periodTargetArr =
+    baseMetrics.requiredRunRate * monthsInPeriod;
+  const arrStatusIsAbove =
+    actuals.newArr >= periodTargetArr && actuals.newArr > 0;
+
+  // ACV diff vs benchmark
+  const acvDiff = baseAcv - benchmarks.acv;
+  const acvIsBelowBenchmark = acvDiff < 0;
+
   // Scenario summary text
   const scenarioName =
     activeScenario === "weakest-stage"
-      ? "Fix weakest stage"
-      : activeScenario === "lift-acv"
-      ? "Increase ACV by 10%"
+      ? "Fix weakest funnel stage"
+      : activeScenario === "acv-gap"
+      ? acvIsBelowBenchmark
+        ? "Fix ACV back to benchmark"
+        : "Lift ACV by 10%"
       : activeScenario === "boost-leads"
       ? "Increase lead volume by 20%"
       : "Base case";
@@ -609,14 +634,22 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
 
         {/* Under/over vs benchmark directly under funnel numbers */}
         <div className="mt-1 grid gap-4 md:grid-cols-6">
-          {/* Leads over/under vs baseline (newLeadsPerMonth * monthsInPeriod) */}
-          <div className="md:col-span-1 flex items-center justify-center text-xs font-semibold">
+          {/* Leads over/under vs baseline */}
+          <div className="md:col-span-1 flex items-center justify-center text-sm font-semibold">
             {(() => {
+              if (!Number.isFinite(leadsDiff)) return null;
               const isAbove = leadsDiff >= 0;
               const arrow = isAbove ? "↑" : "↓";
               const absDiff = Math.round(
                 Math.abs(leadsDiff)
               );
+              if (absDiff === 0) {
+                return (
+                  <span className="text-slate-500">
+                    = 0
+                  </span>
+                );
+              }
               return (
                 <span
                   className={
@@ -642,17 +675,23 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             return (
               <div
                 key={metric.key}
-                className="flex items-center justify-center text-xs font-semibold"
+                className="flex items-center justify-center text-sm font-semibold"
               >
-                <span
-                  className={
-                    isAbove
-                      ? "text-emerald-400"
-                      : "text-red-400"
-                  }
-                >
-                  {arrow} {formatInteger(absDiff)}
-                </span>
+                {absDiff === 0 ? (
+                  <span className="text-slate-500">
+                    = 0
+                  </span>
+                ) : (
+                  <span
+                    className={
+                      isAbove
+                        ? "text-emerald-400"
+                        : "text-red-400"
+                    }
+                  >
+                    {arrow} {formatInteger(absDiff)}
+                  </span>
+                )}
               </div>
             );
           })}
@@ -660,6 +699,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
 
         {/* Bottom row: ARR / ACV / NRR */}
         <div className="mt-4 grid gap-4 md:grid-cols-4">
+          {/* New ARR in Period with status pill */}
           <div>
             <label className="block text-xs text-slate-300">
               New ARR in Period
@@ -684,8 +724,22 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                 }
               />
             </div>
+            <div className="mt-2">
+              <span
+                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${
+                  arrStatusIsAbove
+                    ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-300"
+                    : "border-red-500/60 bg-red-500/10 text-red-300"
+                }`}
+              >
+                {arrStatusIsAbove
+                  ? "Above Target"
+                  : "Behind Target"}
+              </span>
+            </div>
           </div>
 
+          {/* ACV + delta vs benchmark */}
           <div>
             <label className="block text-xs text-slate-300">
               Average contract value (ACV)
@@ -693,6 +747,23 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             <div className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-50">
               {avgAcvDisplay}
             </div>
+            {actuals.wins > 0 && Math.abs(acvDiff) >= 1 && (
+              <div className="mt-1 text-sm font-semibold">
+                <span
+                  className={
+                    acvDiff >= 0
+                      ? "text-emerald-400"
+                      : "text-red-400"
+                  }
+                >
+                  {acvDiff >= 0 ? "↑ " : "↓ "}
+                  {formatCurrency(Math.abs(acvDiff))}
+                </span>
+                <span className="ml-1 text-xs text-slate-400">
+                  vs ACV benchmark
+                </span>
+              </div>
+            )}
           </div>
 
           <div>
@@ -800,9 +871,8 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               Priority scenarios to improve outcome
             </h2>
             <p className="text-xs text-slate-400">
-              The model flags underperforming stages and
-              shows what happens if you fix them or pull key
-              levers.
+              Fix weak funnel stages, close ACV gaps,
+              or test the impact of more top-of-funnel.
             </p>
           </div>
           {activeScenario && (
@@ -859,26 +929,41 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             </button>
           </div>
 
-          {/* Scenario 2: Lift ACV */}
+          {/* Scenario 2: ACV gap / fix to benchmark */}
           <div className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-slate-100">
-                Increase ACV by 10%
+                {acvIsBelowBenchmark
+                  ? "Fix ACV back to benchmark"
+                  : "Lift ACV by 10%"}
               </h3>
               <p className="text-xs text-slate-400">
-                Current ACV is around{" "}
-                {formatCurrency(baseAcv)}. See what
-                happens if you improve pricing, discount
-                discipline, or packaging to lift ACV by
-                10%.
+                {acvIsBelowBenchmark ? (
+                  <>
+                    Current ACV is{" "}
+                    {formatCurrency(baseAcv)} vs
+                    benchmark{" "}
+                    {formatCurrency(benchmarks.acv)}.
+                    See the impact of bringing ACV back
+                    to benchmark on ARR.
+                  </>
+                ) : (
+                  <>
+                    Current ACV is around{" "}
+                    {formatCurrency(baseAcv)}. See what
+                    happens if you improve pricing,
+                    discount discipline, or packaging
+                    to lift ACV by 10%.
+                  </>
+                )}
               </p>
             </div>
             <button
               onClick={() =>
-                applyScenario("lift-acv")
+                applyScenario("acv-gap")
               }
               className={`mt-3 inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                activeScenario === "lift-acv"
+                activeScenario === "acv-gap"
                   ? "bg-sky-500 text-slate-950"
                   : "bg-slate-800 text-slate-100 hover:bg-slate-700"
               }`}
@@ -933,7 +1018,9 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
           . You are{" "}
           <span
             className={
-              isAhead ? "text-emerald-400 font-semibold" : "text-red-400 font-semibold"
+              isAhead
+                ? "text-emerald-400 font-semibold"
+                : "text-red-400 font-semibold"
             }
           >
             {isAhead ? "ahead" : "behind"}
