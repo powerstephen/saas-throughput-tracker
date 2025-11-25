@@ -4,6 +4,7 @@
 import React from "react";
 
 export interface Benchmarks {
+  currentArr: number;      // ✅ added back
   targetArr: number;
   timeframeWeeks: number;
 
@@ -14,10 +15,10 @@ export interface Benchmarks {
   proposalToWin: number;
 
   // commercial benchmarks
-  acv: number; // €
-  monthlyChurn: number; // decimal, e.g. 0.01 = 1%
-  expansion: number; // decimal per year, e.g. 0.2 = 20%
-  nrr: number; // multiple, e.g. 1.2 = 120%
+  acv: number;            // €
+  monthlyChurn: number;   // decimal, e.g. 0.01 = 1%
+  expansion: number;      // decimal per year, e.g. 0.2 = 20%
+  nrr: number;            // multiple, e.g. 1.2 = 120%
 }
 
 interface BenchmarksPanelProps {
@@ -69,30 +70,46 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
             ARR Target
           </h3>
           <p className="mt-1 text-xs text-slate-400">
-            Target ARR and timeframe for this model.
+            Current ARR, target ARR, and timeframe for this model.
           </p>
 
+          {/* ✅ Current ARR */}
           <label className="mt-4 block text-xs text-slate-400">
+            Current ARR
+            <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
+              <span className="text-slate-500">€</span>
+              <input
+                type="text"
+                className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
+                value={benchmarks.currentArr.toLocaleString("en-IE", {
+                  maximumFractionDigits: 0,
+                })}
+                onChange={(e) =>
+                  handleNumberChange("currentArr", e.target.value)
+                }
+              />
+            </div>
+          </label>
+
+          {/* Target ARR */}
+          <label className="mt-3 block text-xs text-slate-400">
             Target ARR for this period
             <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
               <span className="text-slate-500">€</span>
               <input
                 type="text"
                 className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
-                value={benchmarks.targetArr.toLocaleString(
-                  "en-IE",
-                  { maximumFractionDigits: 0 }
-                )}
+                value={benchmarks.targetArr.toLocaleString("en-IE", {
+                  maximumFractionDigits: 0,
+                })}
                 onChange={(e) =>
-                  handleNumberChange(
-                    "targetArr",
-                    e.target.value
-                  )
+                  handleNumberChange("targetArr", e.target.value)
                 }
               />
             </div>
           </label>
 
+          {/* Timeframe */}
           <label className="mt-3 block text-xs text-slate-400">
             Timeframe to hit target (weeks)
             <input
@@ -100,10 +117,7 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-50 outline-none"
               value={benchmarks.timeframeWeeks}
               onChange={(e) =>
-                handleNumberChange(
-                  "timeframeWeeks",
-                  e.target.value
-                )
+                handleNumberChange("timeframeWeeks", e.target.value)
               }
             />
           </label>
@@ -124,14 +138,9 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
               <input
                 type="number"
                 className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
-                value={Math.round(
-                  benchmarks.mqlToSql * 100
-                )}
+                value={Math.round(benchmarks.mqlToSql * 100)}
                 onChange={(e) =>
-                  handlePercentChange(
-                    "mqlToSql",
-                    e.target.value
-                  )
+                  handlePercentChange("mqlToSql", e.target.value)
                 }
               />
               <span className="text-slate-500">%</span>
@@ -144,14 +153,9 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
               <input
                 type="number"
                 className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
-                value={Math.round(
-                  benchmarks.sqlToOpp * 100
-                )}
+                value={Math.round(benchmarks.sqlToOpp * 100)}
                 onChange={(e) =>
-                  handlePercentChange(
-                    "sqlToOpp",
-                    e.target.value
-                  )
+                  handlePercentChange("sqlToOpp", e.target.value)
                 }
               />
               <span className="text-slate-500">%</span>
@@ -174,14 +178,9 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
               <input
                 type="number"
                 className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
-                value={Math.round(
-                  benchmarks.oppToProposal * 100
-                )}
+                value={Math.round(benchmarks.oppToProposal * 100)}
                 onChange={(e) =>
-                  handlePercentChange(
-                    "oppToProposal",
-                    e.target.value
-                  )
+                  handlePercentChange("oppToProposal", e.target.value)
                 }
               />
               <span className="text-slate-500">%</span>
@@ -194,14 +193,9 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
               <input
                 type="number"
                 className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
-                value={Math.round(
-                  benchmarks.proposalToWin * 100
-                )}
+                value={Math.round(benchmarks.proposalToWin * 100)}
                 onChange={(e) =>
-                  handlePercentChange(
-                    "proposalToWin",
-                    e.target.value
-                  )
+                  handlePercentChange("proposalToWin", e.target.value)
                 }
               />
               <span className="text-slate-500">%</span>
@@ -215,10 +209,9 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
               <input
                 type="text"
                 className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
-                value={benchmarks.acv.toLocaleString(
-                  "en-IE",
-                  { maximumFractionDigits: 0 }
-                )}
+                value={benchmarks.acv.toLocaleString("en-IE", {
+                  maximumFractionDigits: 0,
+                })}
                 onChange={(e) =>
                   handleNumberChange("acv", e.target.value)
                 }
@@ -242,14 +235,9 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
               <input
                 type="number"
                 className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
-                value={Math.round(
-                  benchmarks.monthlyChurn * 100
-                )}
+                value={Math.round(benchmarks.monthlyChurn * 100)}
                 onChange={(e) =>
-                  handlePercentChange(
-                    "monthlyChurn",
-                    e.target.value
-                  )
+                  handlePercentChange("monthlyChurn", e.target.value)
                 }
               />
               <span className="text-slate-500">%</span>
@@ -262,14 +250,9 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
               <input
                 type="number"
                 className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
-                value={Math.round(
-                  benchmarks.expansion * 100
-                )}
+                value={Math.round(benchmarks.expansion * 100)}
                 onChange={(e) =>
-                  handlePercentChange(
-                    "expansion",
-                    e.target.value
-                  )
+                  handlePercentChange("expansion", e.target.value)
                 }
               />
               <span className="text-slate-500">%</span>
@@ -284,10 +267,7 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
                 className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
                 value={Math.round(benchmarks.nrr * 100)}
                 onChange={(e) =>
-                  handlePercentChange(
-                    "nrr",
-                    e.target.value
-                  )
+                  handlePercentChange("nrr", e.target.value)
                 }
               />
               <span className="text-slate-500">%</span>
@@ -297,11 +277,10 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
       </div>
 
       <p className="mt-4 text-xs text-slate-500">
-        Use realistic but stretching benchmarks that match
-        how a healthy EdgeTier-style funnel should perform.
-        The calculator will compare your actuals to these to
-        highlight bottlenecks, quantify ARR unlock, and show
-        the impact of improvement scenarios.
+        Use realistic but stretching benchmarks that match how a healthy
+        EdgeTier-style funnel should perform. The calculator will compare your
+        actuals to these to highlight bottlenecks, quantify ARR unlock, and
+        show the impact of improvement scenarios.
       </p>
     </section>
   );
