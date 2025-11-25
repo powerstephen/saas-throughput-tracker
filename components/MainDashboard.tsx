@@ -454,7 +454,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg shadow-slate-950/40">
         <div className="mb-4 flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-semibold text-slate-100">
+            <h2 className="text-lg font-semibold text-slate-100">
               Current Funnel Velocity (Last 30/60/90 Days)
             </h2>
             <p className="text-xs text-slate-400">
