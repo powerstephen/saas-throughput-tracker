@@ -10,8 +10,8 @@ import MainDashboard from "@/components/MainDashboard";
 const HomePage: React.FC = () => {
   const [benchmarks, setBenchmarks] = useState<Benchmarks>({
     // ARR block
-    currentArr: 4_000_000, // example current ARR
-    targetArr: 10_000_000, // example target ARR
+    currentArr: 7_500_000, // updated default current ARR
+    targetArr: 10_000_000,
     timeframeWeeks: 52,
 
     // Marketing
