@@ -4,21 +4,26 @@
 import React from "react";
 
 export interface Benchmarks {
-  currentArr: number;      // ✅ added back
+  // ARR / Revenue
+  currentArr: number;
   targetArr: number;
   timeframeWeeks: number;
 
-  // funnel conversion targets (stored as decimals, e.g. 0.35 = 35%)
-  mqlToSql: number;
-  sqlToOpp: number;
-  oppToProposal: number;
-  proposalToWin: number;
+  // Marketing funnel benchmarks
+  newLeadsPerMonth: number;
+  leadsToMql: number; // decimal, e.g. 0.25 = 25%
+  mqlToSql: number;   // decimal, e.g. 0.35 = 35%
 
-  // commercial benchmarks
-  acv: number;            // €
-  monthlyChurn: number;   // decimal, e.g. 0.01 = 1%
-  expansion: number;      // decimal per year, e.g. 0.2 = 20%
-  nrr: number;            // multiple, e.g. 1.2 = 120%
+  // Sales funnel benchmarks
+  sqlToOpp: number;         // decimal
+  oppToProposal: number;    // decimal
+  proposalToWin: number;    // decimal
+
+  // Commercial benchmarks
+  acv: number;          // €
+  monthlyChurn: number; // decimal, e.g. 0.01 = 1%
+  expansion: number;    // decimal per year, e.g. 0.2 = 20%
+  nrr: number;          // multiple, e.g. 1.2 = 120%
 }
 
 interface BenchmarksPanelProps {
@@ -59,21 +64,19 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
     <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 px-6 py-5 text-slate-50">
       <h2 className="text-lg font-semibold">Benchmarks</h2>
       <p className="mt-1 text-sm text-slate-400">
-        These benchmarks drive the diagnosis, scenarios, and ARR
-        projections across the dashboard.
+        These benchmarks drive the diagnosis, scenarios, and ARR projections
+        across the dashboard.
       </p>
 
       <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {/* ARR / Revenue column */}
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-4">
-          <h3 className="text-sm font-semibold text-slate-200">
-            ARR Target
-          </h3>
+          <h3 className="text-sm font-semibold text-slate-200">ARR Target</h3>
           <p className="mt-1 text-xs text-slate-400">
             Current ARR, target ARR, and timeframe for this model.
           </p>
 
-          {/* ✅ Current ARR */}
+          {/* Current ARR */}
           <label className="mt-4 block text-xs text-slate-400">
             Current ARR
             <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
@@ -125,14 +128,44 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
 
         {/* Marketing column */}
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-4">
-          <h3 className="text-sm font-semibold text-slate-200">
-            Marketing
-          </h3>
+          <h3 className="text-sm font-semibold text-slate-200">Marketing</h3>
           <p className="mt-1 text-xs text-slate-400">
-            Top- and mid-funnel conversion targets.
+            Lead volume and top/mid funnel conversion targets.
           </p>
 
+          {/* New leads per month */}
           <label className="mt-4 block text-xs text-slate-400">
+            New leads per month
+            <input
+              type="text"
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-50 outline-none"
+              value={benchmarks.newLeadsPerMonth.toLocaleString("en-IE", {
+                maximumFractionDigits: 0,
+              })}
+              onChange={(e) =>
+                handleNumberChange("newLeadsPerMonth", e.target.value)
+              }
+            />
+          </label>
+
+          {/* Leads → MQL */}
+          <label className="mt-3 block text-xs text-slate-400">
+            Leads → MQL target (%)
+            <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
+              <input
+                type="number"
+                className="w-full bg-transparent py-1 text-sm text-slate-50 outline-none"
+                value={Math.round(benchmarks.leadsToMql * 100)}
+                onChange={(e) =>
+                  handlePercentChange("leadsToMql", e.target.value)
+                }
+              />
+              <span className="text-slate-500">%</span>
+            </div>
+          </label>
+
+          {/* MQL → SQL */}
+          <label className="mt-3 block text-xs text-slate-400">
             MQL → SQL target (%)
             <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
               <input
@@ -146,8 +179,17 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
               <span className="text-slate-500">%</span>
             </div>
           </label>
+        </div>
 
-          <label className="mt-3 block text-xs text-slate-400">
+        {/* Sales column */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-4">
+          <h3 className="text-sm font-semibold text-slate-200">Sales</h3>
+          <p className="mt-1 text-xs text-slate-400">
+            Down-funnel conversion and deal value.
+          </p>
+
+          {/* SQL → Opp */}
+          <label className="mt-4 block text-xs text-slate-400">
             SQL → Opp target (%)
             <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
               <input
@@ -161,18 +203,9 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
               <span className="text-slate-500">%</span>
             </div>
           </label>
-        </div>
 
-        {/* Sales column */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-4">
-          <h3 className="text-sm font-semibold text-slate-200">
-            Sales
-          </h3>
-          <p className="mt-1 text-xs text-slate-400">
-            Down-funnel conversion and deal value.
-          </p>
-
-          <label className="mt-4 block text-xs text-slate-400">
+          {/* Opp → Proposal */}
+          <label className="mt-3 block text-xs text-slate-400">
             Opp → Proposal target (%)
             <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
               <input
@@ -187,6 +220,7 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
             </div>
           </label>
 
+          {/* Proposal → Win */}
           <label className="mt-3 block text-xs text-slate-400">
             Proposal → Win target (%)
             <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
@@ -202,6 +236,7 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
             </div>
           </label>
 
+          {/* ACV */}
           <label className="mt-3 block text-xs text-slate-400">
             ACV target (€)
             <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2">
