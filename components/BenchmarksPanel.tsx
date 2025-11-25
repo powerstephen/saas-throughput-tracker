@@ -77,7 +77,7 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-4">
           <h3 className="text-sm font-semibold text-slate-200">ARR Target</h3>
           <p className="mt-1 text-xs text-slate-400">
-            Current ARR, target ARR, and timeframe to hit it.
+            Current ARR, Target & Timeframe
           </p>
 
           <label className="mt-4 block text-xs text-slate-400">
@@ -262,13 +262,6 @@ export const BenchmarksPanel: React.FC<BenchmarksPanelProps> = ({
           </label>
         </div>
       </div>
-
-      <p className="mt-4 text-xs text-slate-500">
-        Use realistic but stretching benchmarks that match how a healthy
-        EdgeTier-style funnel should perform. The calculator will compare your
-        actuals to these to highlight bottlenecks, quantify ARR unlock, and
-        show the impact of improvement scenarios.
-      </p>
     </section>
   );
 };
