@@ -196,7 +196,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
   const monthsInTargetPeriod =
     benchmarks.timeframeWeeks / 4.345;
 
-  // NEW: funnel stage vs benchmark (absolute counts and diff)
+  // Funnel stage vs benchmark (absolute counts and diff)
   const funnelBenchmarkComparisons = useMemo(() => {
     const items = [];
 
@@ -396,7 +396,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
       if (field === "newArr") {
         const cleaned = value.replace(/[^\d]/g, "");
         if (!cleaned) {
-          // show blank in the UI (we'll render "" when value is 0)
           return {
             ...prev,
             newArr: 0,
@@ -591,6 +590,36 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
           </div>
         </div>
 
+        {/* Under/over vs benchmark directly under funnel numbers */}
+        <div className="mt-1 grid gap-4 md:grid-cols-6">
+          {/* empty under Leads */}
+          <div className="md:col-span-1" />
+          {funnelBenchmarkComparisons.map((metric) => {
+            const isAbove = metric.diff >= 0;
+            const arrow = isAbove ? "↑" : "↓";
+            const absDiff = Math.round(
+              Math.abs(metric.diff)
+            );
+
+            return (
+              <div
+                key={metric.key}
+                className="flex items-center justify-center text-xs font-semibold"
+              >
+                <span
+                  className={
+                    isAbove
+                      ? "text-emerald-400"
+                      : "text-red-400"
+                  }
+                >
+                  {arrow} {formatInteger(absDiff)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
         {/* Bottom row: ARR / ACV / NRR */}
         <div className="mt-4 grid gap-4 md:grid-cols-4">
           <div>
@@ -662,63 +691,6 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
             <div className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100">
               {formatPercent(benchmarks.nrr - 1)}
             </div>
-          </div>
-        </div>
-
-        {/* NEW: stage metrics vs benchmarks (absolute gaps) */}
-        <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
-          <h3 className="text-[11px] font-semibold text-slate-200">
-            Stage performance vs benchmarks
-          </h3>
-          <p className="mt-1 text-[11px] text-slate-500">
-            Each row shows how far above or below the
-            benchmark you are in this period.
-          </p>
-          <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {funnelBenchmarkComparisons.map((metric) => {
-              const isAbove = metric.diff >= 0;
-              const arrow = isAbove ? "↑" : "↓";
-              const absDiff = Math.round(
-                Math.abs(metric.diff)
-              );
-
-              return (
-                <div
-                  key={metric.key}
-                  className="flex items-center justify-between text-[11px]"
-                >
-                  <div className="space-y-0.5">
-                    <div className="text-slate-300">
-                      {metric.label}
-                    </div>
-                    <div className="text-slate-500">
-                      {formatInteger(
-                        Math.round(metric.actual)
-                      )}{" "}
-                      actual vs{" "}
-                      {formatInteger(
-                        Math.round(metric.expected)
-                      )}{" "}
-                      benchmark
-                    </div>
-                  </div>
-                  <div
-                    className={`ml-3 flex items-center font-semibold ${
-                      isAbove
-                        ? "text-emerald-500"
-                        : "text-red-500"
-                    }`}
-                  >
-                    <span className="mr-1">
-                      {arrow}
-                    </span>
-                    <span>
-                      {formatInteger(absDiff)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </section>
